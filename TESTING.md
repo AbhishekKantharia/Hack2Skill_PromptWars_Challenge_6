@@ -102,7 +102,7 @@ Do not mark a release ready until all four local scripts pass.
 - [ ] Unusual change triggers warning/info based on direction.
 - [ ] Forecast spike triggers when a future hour is high enough above current AQI.
 - [ ] Favorable ventilation window appears when forecast allows it.
-- [ ] Bell popover shows total alert count, color-coded urgency, and `Customize` link.
+- [ ] Bell opens a fixed alert panel with count, color-coded urgency, `Customize` link, close button, Escape close, and outside-click close.
 - [ ] Home always shows a labeled `Intelligent Alerts` section with a count badge.
 - [ ] Home shows an empty state when there are no active advisories.
 - [ ] Home shows the first two alerts by default and expands to the full list when requested.

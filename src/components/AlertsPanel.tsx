@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { PrefetchLink } from '@/components/PrefetchLink';
-import { AlertTriangle, Bell, CheckCircle2, Info, ShieldAlert, SlidersHorizontal, Wind } from 'lucide-react';
+import { AlertTriangle, Bell, CheckCircle2, Info, ShieldAlert, SlidersHorizontal, Wind, X } from 'lucide-react';
 import { useBreatheWise } from '@/components/BreatheWiseProvider';
 import type { IntelligentAlert } from '@/types/breathewise';
 
@@ -44,12 +44,24 @@ export function AlertsBellButton() {
     [alerts]
   );
 
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
+
   return (
     <div className="relative">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen((value) => !value)}
         aria-label="Open intelligent air quality alerts"
+        aria-expanded={open}
+        aria-controls="intelligent-alerts-panel"
+        title="Intelligent alerts"
         className="relative inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-700 transition hover:border-emerald-400 hover:text-emerald-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
       >
         <Bell className="h-4 w-4" />
@@ -65,57 +77,83 @@ export function AlertsBellButton() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] max-w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl sm:w-96 dark:border-slate-700 dark:bg-slate-900">
-          <div className="mb-2 flex items-center justify-between border-b border-slate-100 pb-2 dark:border-slate-800">
-            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-              Intelligent Alerts ({alerts.length})
-            </span>
-            <PrefetchLink
-              href="/settings"
-              apiPath="/api/settings"
-              onClick={() => setOpen(false)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-sky-600 hover:underline dark:text-sky-400"
-            >
-              <SlidersHorizontal className="h-3 w-3" />
-              Customize
-            </PrefetchLink>
-          </div>
-
-          {alerts.length === 0 ? (
-            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-              <span>No active pollution advisories based on your alert thresholds.</span>
+        <>
+          <button
+            type="button"
+            aria-label="Close intelligent alerts"
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-40 cursor-default bg-slate-950/25"
+          />
+          <div
+            id="intelligent-alerts-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Intelligent air quality alerts"
+            className="fixed right-3 top-16 z-50 w-[min(24rem,calc(100vw_-_1.5rem))] max-w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="min-w-0">
+                <span className="text-sm font-bold text-slate-900 dark:text-white">
+                  Intelligent Alerts ({alerts.length})
+                </span>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  Based on your saved thresholds and current forecast.
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <PrefetchLink
+                  href="/settings"
+                  apiPath="/api/settings"
+                  onClick={() => setOpen(false)}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-sky-600 hover:underline dark:text-sky-400"
+                >
+                  <SlidersHorizontal className="h-3 w-3" />
+                  Customize
+                </PrefetchLink>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  aria-label="Close alerts panel"
+                  className="rounded-lg border border-slate-200 p-1.5 text-slate-600 hover:border-emerald-400 dark:border-slate-700 dark:text-slate-300"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
             </div>
-          ) : (
-            <div className="max-h-80 space-y-2 overflow-y-auto pr-0.5">
-              {alerts.map((alert) => {
-                const st = getAlertStyle(alert);
-                return (
-                  <div
-                    key={alert.id}
-                    className={`rounded-xl border p-2.5 text-xs ${st.wrapper}`}
-                  >
-                    <div className="flex items-start gap-2">
-                      {st.icon}
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold">{alert.title}</span>
-                          {alert.metricValue && (
-                            <span className={`rounded-md px-1.5 py-0.5 text-micro font-bold ${st.badge}`}>
-                              {alert.metricValue}
-                            </span>
-                          )}
+
+            {alerts.length === 0 ? (
+              <div className="mt-3 flex items-start gap-2 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>No active pollution advisories based on your alert thresholds.</span>
+              </div>
+            ) : (
+              <div className="mt-3 max-h-[min(30rem,calc(100vh_-_7rem))] space-y-2 overflow-y-auto pr-0.5">
+                {alerts.map((alert) => {
+                  const st = getAlertStyle(alert);
+                  return (
+                    <div key={alert.id} className={`rounded-xl border p-2.5 text-xs ${st.wrapper}`}>
+                      <div className="flex items-start gap-2">
+                        {st.icon}
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold">{alert.title}</span>
+                            {alert.metricValue && (
+                              <span className={`rounded-md px-1.5 py-0.5 text-micro font-bold ${st.badge}`}>
+                                {alert.metricValue}
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 opacity-90">{alert.message}</p>
+                          <p className="mt-1.5 font-medium">Action: {alert.recommendedAction}</p>
                         </div>
-                        <p className="mt-1 opacity-90">{alert.message}</p>
-                        <p className="mt-1.5 font-medium">Action: {alert.recommendedAction}</p>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

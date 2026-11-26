@@ -311,6 +311,6 @@ State: static only. The DMCA agent contact is still a placeholder and must be re
 - Daily impact values come only from `src/lib/impact-engine.ts`; AI output is explanatory only.
 - User text is inert; no HTML rendering from submissions or AI output.
 - Preferences are session-scoped; there are no user accounts or password flows.
-- Alerts are in-app only: bell popover and home strip. There is no email, SMS, or push channel.
+- Alerts are in-app only: a fixed bell panel and a labeled home strip. There is no email, SMS, or push channel.
 - Navigation should prefetch routes and related API reads where implemented.
 - Medical claims and emergency instructions are out of scope; advise qualified clinical help where appropriate.
