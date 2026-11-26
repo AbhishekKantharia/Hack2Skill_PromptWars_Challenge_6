@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { isAllowedOrigin, isAdminPath, safeEqual } from '@/lib/security';
 import {
   getSessionCookieName,
+  previewFingerprint,
   readSignedSessionId,
   sessionCookieOptions,
   signSessionId,
 } from '@/lib/session-cookie';
-import { PROXY_HEADER } from '@/lib/request-context';
+import { getClientIp, PROXY_HEADER } from '@/lib/request-context';
 
 const PREVIEW_COOKIE = 'breathewise-preview';
 let processSecret: string | null = null;
@@ -35,7 +37,8 @@ function corsHeaders(origin: string | null, requestOrigin: string): Record<strin
     Vary: 'Origin',
     'Access-Control-Allow-Credentials': 'false',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'content-type, x-session-id, authorization, x-admin-token, x-preview-token',
+    'Access-Control-Allow-Headers':
+      'content-type, x-session-id, authorization, x-admin-token, x-preview-token',
     'Access-Control-Max-Age': '600',
   };
   if (origin && isAllowedOrigin(origin, requestOrigin)) {
@@ -44,25 +47,41 @@ function corsHeaders(origin: string | null, requestOrigin: string): Record<strin
   return headers;
 }
 
+function notFound(headers?: Record<string, string>): NextResponse {
+  return NextResponse.json({ error: 'Not found' }, { status: 404, headers });
+}
+
 export async function proxy(req: NextRequest) {
+  const requestOrigin = req.nextUrl.origin;
+  const origin = req.headers.get('origin');
+  const cors = corsHeaders(origin, requestOrigin);
   const previewToken = getPreviewToken();
   const previewLocked = process.env.VERCEL_ENV === 'preview' && !!previewToken;
+  let previewFingerprintValue: string | null = null;
   let previewGrantedByInput = false;
 
   if (previewToken && previewLocked) {
     const queryToken = req.nextUrl.searchParams.get('preview');
     const headerToken = req.headers.get('x-preview-token');
-    const cookieToken = req.cookies.get(PREVIEW_COOKIE)?.value;
-    const supplied = headerToken ?? queryToken ?? cookieToken;
-    previewGrantedByInput = !!headerToken || !!queryToken;
-    if (!safeEqual(supplied, previewToken)) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    const cookieFingerprint = req.cookies.get(PREVIEW_COOKIE)?.value;
+    previewFingerprintValue = await previewFingerprint(previewToken);
+
+    if (queryToken && !safeEqual(queryToken, previewToken)) return notFound();
+    if (headerToken && !safeEqual(headerToken, previewToken)) return notFound();
+    previewGrantedByInput = !!queryToken || !!headerToken;
+    if (!previewGrantedByInput && !safeEqual(cookieFingerprint, previewFingerprintValue)) {
+      return notFound();
+    }
+
+    if (queryToken) {
+      const url = req.nextUrl.clone();
+      url.searchParams.delete('preview');
+      const redirect = NextResponse.redirect(url);
+      redirect.headers.set('Cache-Control', 'no-store');
+      redirect.cookies.set(PREVIEW_COOKIE, previewFingerprintValue, sessionCookieOptions());
+      return redirect;
     }
   }
-
-  const requestOrigin = req.nextUrl.origin;
-  const origin = req.headers.get('origin');
-  const cors = corsHeaders(origin, requestOrigin);
 
   if (origin && !isAllowedOrigin(origin, requestOrigin)) {
     return NextResponse.json({ error: 'Origin not allowed' }, { status: 403, headers: cors });
@@ -73,10 +92,22 @@ export async function proxy(req: NextRequest) {
   }
 
   if (isAdminPath(req.nextUrl.pathname)) {
-    const expected = process.env.ADMIN_TOKEN;
-    if (!expected) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404, headers: cors });
+    const limit = checkRateLimit(`admin:${getClientIp(req)}`);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many attempts. Please wait a minute and try again.' },
+        {
+          status: 429,
+          headers: {
+            ...cors,
+            'Cache-Control': 'no-store',
+            'Retry-After': String(limit.retryAfterSeconds),
+          },
+        }
+      );
     }
+    const expected = process.env.ADMIN_TOKEN;
+    if (!expected) return notFound(cors);
     const authorization = req.headers.get('authorization') ?? '';
     const supplied = authorization.toLowerCase().startsWith('bearer ')
       ? authorization.slice(7).trim()
@@ -99,8 +130,10 @@ export async function proxy(req: NextRequest) {
         sessionCookieOptions()
       );
     }
-    if (previewGrantedByInput && previewToken) {
-      res.cookies.set(PREVIEW_COOKIE, previewToken, sessionCookieOptions());
+    res.headers.set('Access-Control-Allow-Origin', requestOrigin);
+    res.headers.set('Vary', 'Origin');
+    if (previewGrantedByInput && previewToken && previewFingerprintValue) {
+      res.cookies.set(PREVIEW_COOKIE, previewFingerprintValue, sessionCookieOptions());
     }
     return res;
   }
@@ -123,8 +156,8 @@ export async function proxy(req: NextRequest) {
   if (needsCookie) {
     res.cookies.set(cookieName, await signSessionId(sessionId, secret), sessionCookieOptions());
   }
-  if (previewGrantedByInput && previewToken) {
-    res.cookies.set(PREVIEW_COOKIE, previewToken, sessionCookieOptions());
+  if (previewGrantedByInput && previewToken && previewFingerprintValue) {
+    res.cookies.set(PREVIEW_COOKIE, previewFingerprintValue, sessionCookieOptions());
   }
   return res;
 }
