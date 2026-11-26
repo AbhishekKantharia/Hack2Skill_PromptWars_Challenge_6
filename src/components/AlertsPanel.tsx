@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import React, { useMemo, useState } from 'react';
+import { PrefetchLink } from '@/components/PrefetchLink';
 import { AlertTriangle, Bell, CheckCircle2, Info, ShieldAlert, SlidersHorizontal, Wind } from 'lucide-react';
 import { useBreatheWise } from '@/components/BreatheWiseProvider';
 import type { IntelligentAlert } from '@/types/breathewise';
@@ -39,9 +39,10 @@ export function AlertsBellButton() {
   const { alerts } = useBreatheWise();
   const [open, setOpen] = useState(false);
 
-  const urgentCount = alerts.filter(
-    (a) => a.severity === 'critical' || a.severity === 'warning'
-  ).length;
+  const urgentCount = useMemo(
+    () => alerts.filter((a) => a.severity === 'critical' || a.severity === 'warning').length,
+    [alerts]
+  );
 
   return (
     <div className="relative">
@@ -54,7 +55,7 @@ export function AlertsBellButton() {
         <Bell className="h-4 w-4" />
         {alerts.length > 0 && (
           <span
-            className={`absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ${
+            className={`absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-micro font-bold text-white ${
               urgentCount > 0 ? 'bg-rose-500' : 'bg-emerald-600'
             }`}
           >
@@ -64,19 +65,20 @@ export function AlertsBellButton() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-80 sm:w-96 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+        <div className="absolute right-0 top-full z-50 mt-2 w-[min(20rem,calc(100vw-2rem))] max-w-full rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl sm:w-96 dark:border-slate-700 dark:bg-slate-900">
           <div className="mb-2 flex items-center justify-between border-b border-slate-100 pb-2 dark:border-slate-800">
             <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
               Intelligent Alerts ({alerts.length})
             </span>
-            <Link
+            <PrefetchLink
               href="/settings"
+              apiPath="/api/settings"
               onClick={() => setOpen(false)}
               className="inline-flex items-center gap-1 text-xs font-medium text-sky-600 hover:underline dark:text-sky-400"
             >
               <SlidersHorizontal className="h-3 w-3" />
               Customize
-            </Link>
+            </PrefetchLink>
           </div>
 
           {alerts.length === 0 ? (
@@ -99,7 +101,7 @@ export function AlertsBellButton() {
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-semibold">{alert.title}</span>
                           {alert.metricValue && (
-                            <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold ${st.badge}`}>
+                            <span className={`rounded-md px-1.5 py-0.5 text-micro font-bold ${st.badge}`}>
                               {alert.metricValue}
                             </span>
                           )}

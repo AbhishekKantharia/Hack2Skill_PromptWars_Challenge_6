@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
+import { PrefetchLink } from '@/components/PrefetchLink';
 import { usePathname } from 'next/navigation';
 import {
   BookOpen,
@@ -28,14 +28,14 @@ import { AlertsBellButton } from '@/components/AlertsPanel';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Home Dashboard', icon: LayoutDashboard },
-  { href: '/assistant', label: 'AI Quality Assistant', icon: Bot },
+  { href: '/assistant', label: 'AI Quality Assistant', icon: Bot, apiPath: '/api/chat' },
   { href: '/map', label: 'Live Air Map', icon: MapIcon },
   { href: '/cleaner-day', label: 'My Cleaner Day', icon: CalendarClock },
   { href: '/indoor', label: 'Indoor Air Advisor', icon: Home },
-  { href: '/calculator', label: 'Impact & Simulator', icon: Calculator },
-  { href: '/community', label: 'Community Network', icon: Users },
+  { href: '/calculator', label: 'Impact & Simulator', icon: Calculator, apiPath: '/api/calculator' },
+  { href: '/community', label: 'Community Network', icon: Users, apiPath: '/api/community' },
   { href: '/learn', label: 'Learning Center', icon: BookOpen },
-  { href: '/settings', label: 'User Settings', icon: Settings },
+  { href: '/settings', label: 'User Settings', icon: Settings, apiPath: '/api/settings' },
   { href: '/presentation', label: 'Competition Deck', icon: Presentation },
 ];
 
@@ -48,17 +48,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     airQuality,
     loadingAq,
     refreshAirQuality,
+    prefetchAirQuality,
     toggleTheme,
     toggleDemoMode,
   } = useBreatheWise();
 
   const isDemo = airQuality?.dataMode === 'demo';
   const degradedLive = isDemo && !settings.forceDemoMode;
+  const warmModeToggle = () =>
+    prefetchAirQuality(activeCity, degradedLive ? false : !settings.forceDemoMode);
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex lg:w-68 lg:shrink-0 lg:flex-col border-r border-emerald-200/70 bg-white/95 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
+      <aside className="hidden lg:flex lg:w-68 lg:shrink-0 lg:flex-col border-r border-emerald-200/70 bg-white dark:border-slate-800 dark:bg-slate-950">
         <div className="flex items-center gap-3 border-b border-emerald-100 px-5 py-4 dark:border-slate-800">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-sky-600 text-white shadow-md shadow-emerald-500/20">
             <Wind className="h-5 w-5" />
@@ -78,10 +81,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             const Icon = item.icon;
             const active = pathname === item.href;
             return (
-              <Link
+              <PrefetchLink
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition ${
+                apiPath={item.apiPath}
+                className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors ${
                   active
                     ? 'bg-gradient-to-r from-emerald-500/15 to-sky-500/15 text-emerald-800 ring-1 ring-emerald-500/30 dark:text-emerald-300'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-white'
@@ -93,7 +97,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   }`}
                 />
                 <span>{item.label}</span>
-              </Link>
+              </PrefetchLink>
             );
           })}
         </nav>
@@ -114,7 +118,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 if (degradedLive) void refreshAirQuality(activeCity, false);
                 else void toggleDemoMode();
               }}
-              className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700 shadow-xs transition hover:bg-emerald-50 dark:bg-slate-900 dark:text-emerald-300"
+              onMouseEnter={warmModeToggle}
+              onFocus={warmModeToggle}
+              onTouchStart={warmModeToggle}
+              className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-micro font-semibold text-emerald-700 shadow-xs transition-colors hover:bg-emerald-50 dark:bg-slate-900 dark:text-emerald-300"
             >
               <FlaskConical className="h-3.5 w-3.5" />
               {degradedLive
@@ -131,7 +138,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 flex lg:hidden">
           <div
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
+            className="fixed inset-0 bg-slate-900/60"
             onClick={() => setMobileOpen(false)}
           />
           <aside className="relative z-10 flex w-72 flex-col bg-white p-4 shadow-2xl dark:bg-slate-950">
@@ -156,9 +163,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 const Icon = item.icon;
                 const active = pathname === item.href;
                 return (
-                  <Link
+                  <PrefetchLink
                     key={item.href}
                     href={item.href}
+                    apiPath={item.apiPath}
                     onClick={() => setMobileOpen(false)}
                     className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ${
                       active
@@ -168,7 +176,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   >
                     <Icon className="h-4 w-4" />
                     <span>{item.label}</span>
-                  </Link>
+                  </PrefetchLink>
                 );
               })}
             </nav>
@@ -179,9 +187,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main Content Area */}
       <div className="flex flex-1 flex-col min-w-0">
         {/* Top Bar */}
-        <header className="sticky top-0 z-30 border-b border-emerald-200/70 bg-white/85 px-4 py-3 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/85 sm:px-6">
+        <header className="sticky top-0 z-30 border-b border-emerald-200/70 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950 sm:px-6">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
               <button
                 type="button"
                 onClick={() => setMobileOpen(true)}
@@ -201,7 +209,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
                   LIVE
                 </span>
               )}
@@ -209,9 +217,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 onClick={() => void refreshAirQuality()}
+                onMouseEnter={() => prefetchAirQuality()}
+                onFocus={() => prefetchAirQuality()}
+                onTouchStart={() => prefetchAirQuality()}
                 disabled={loadingAq}
                 title="Refresh environmental readings"
-                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-700 transition hover:border-emerald-400 hover:text-emerald-700 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-700 transition-colors hover:border-emerald-400 hover:text-emerald-700 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               >
                 <RefreshCw className={`h-4 w-4 ${loadingAq ? 'animate-spin' : ''}`} />
               </button>
@@ -222,7 +233,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 type="button"
                 onClick={toggleTheme}
                 aria-label="Toggle light or dark theme"
-                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-700 transition hover:border-sky-400 hover:text-sky-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-700 transition-colors hover:border-sky-400 hover:text-sky-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               >
                 {settings.theme === 'dark' ? (
                   <Sun className="h-4 w-4 text-amber-400" />
@@ -244,9 +255,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <strong>BreatheWise AI</strong> — Informational urban environmental intelligence. Not medical advice; consult a qualified clinician for health concerns.{' '}
-              <Link href="/legal" className="font-semibold text-emerald-700 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-900 dark:text-emerald-300 dark:hover:text-emerald-200">
+              <PrefetchLink href="/legal" className="font-semibold text-emerald-700 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-900 dark:text-emerald-300 dark:hover:text-emerald-200">
                 Legal &amp; Privacy
-              </Link>
+              </PrefetchLink>
             </div>
             <div>
               {airQuality?.sourceName ? `Data source: ${airQuality.sourceName}` : 'Connecting to environmental source...'}

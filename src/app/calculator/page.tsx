@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -28,6 +28,18 @@ import {
 } from '@/lib/calculations';
 import { apiFetch } from '@/lib/client-api';
 
+const CHART_MARGIN = { top: 10, right: 10, left: -12, bottom: 20 };
+const X_AXIS_TICK = { fontSize: 10, fill: '#64748b' };
+const Y_AXIS_TICK = { fontSize: 11, fill: '#64748b' };
+const TOOLTIP_STYLE = {
+  borderRadius: '12px',
+  backgroundColor: 'rgba(15, 23, 42, 0.94)',
+  border: 'none',
+  color: '#fff',
+  fontSize: '12px',
+};
+const BAR_RADIUS: [number, number, number, number] = [6, 6, 0, 0];
+
 export default function CalculatorAndSimulatorPage() {
   const [frequencies, setFrequencies] = useState<Record<string, number>>({
     public_transit: 3,
@@ -39,6 +51,13 @@ export default function CalculatorAndSimulatorPage() {
   });
   const [saving, setSaving] = useState(false);
   const [savedNotice, setSavedNotice] = useState<{ message: string; ok: boolean } | null>(null);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    };
+  }, []);
 
   // What-If Pollution Simulator state
   const [selectedScenarioId, setSelectedScenarioId] = useState(SIMULATOR_SCENARIOS[0].id);
@@ -58,8 +77,11 @@ export default function CalculatorAndSimulatorPage() {
     })();
   }, []);
 
-  const impact = calculateSustainabilityImpact({ frequencies });
-  const simResult = evaluateSimulatorScenario(selectedScenarioId, adoptionPct);
+  const impact = useMemo(() => calculateSustainabilityImpact({ frequencies }), [frequencies]);
+  const simResult = useMemo(
+    () => evaluateSimulatorScenario(selectedScenarioId, adoptionPct),
+    [selectedScenarioId, adoptionPct]
+  );
 
   async function handleSaveProgress() {
     setSaving(true);
@@ -73,20 +95,26 @@ export default function CalculatorAndSimulatorPage() {
       const data = await res.json().catch(() => null);
       const message = res.ok ? 'Weekly action plan saved!' : data?.error ?? 'Could not save your plan.';
       setSavedNotice({ message, ok: res.ok });
-      setTimeout(() => setSavedNotice(null), 3000);
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+      noticeTimerRef.current = setTimeout(() => setSavedNotice(null), 3000);
     } catch {
       setSavedNotice({ message: 'Network error. Your plan was not saved.', ok: false });
-      setTimeout(() => setSavedNotice(null), 3000);
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+      noticeTimerRef.current = setTimeout(() => setSavedNotice(null), 3000);
     } finally {
       setSaving(false);
     }
   }
 
-  const chartData = impact.breakdown.map((b) => ({
-    name: b.id.replace(/_/g, ' ').slice(0, 16),
-    weeklyCo2: b.co2KgWeek,
-    monthlyCo2: Number((b.co2KgWeek * 4.33).toFixed(1)),
-  }));
+  const chartData = useMemo(
+    () =>
+      impact.breakdown.map((b) => ({
+        name: b.id.replace(/_/g, ' ').slice(0, 8),
+        weeklyCo2: b.co2KgWeek,
+        monthlyCo2: Number((b.co2KgWeek * 4.33).toFixed(1)),
+      })),
+    [impact]
+  );
 
   return (
     <div className="space-y-8">
@@ -223,7 +251,7 @@ export default function CalculatorAndSimulatorPage() {
             })}
           </div>
 
-          <div className="flex flex-col justify-between rounded-3xl border border-emerald-200/70 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex min-w-0 flex-col justify-between rounded-3xl border border-emerald-200/70 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white">
                 Weekly &amp; Monthly CO₂e Avoided (kg)
