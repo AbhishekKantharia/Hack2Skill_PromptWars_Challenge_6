@@ -38,6 +38,7 @@ interface BreatheWiseContextValue {
 
 const BreatheWiseContext = createContext<BreatheWiseContextValue | null>(null);
 const EMPTY_ALERTS: IntelligentAlert[] = [];
+const EMPTY_RECOMMENDATIONS: DailyImpactRecommendation[] = [];
 
 export function airQualityApiPath(city: CityLocation, demo: boolean): string {
   const params = new URLSearchParams({
@@ -71,6 +72,9 @@ function settingsMatch(a: UserSettings, b: UserSettings): boolean {
     a.defaultCity.name === b.defaultCity.name &&
     a.defaultCity.lat === b.defaultCity.lat &&
     a.defaultCity.lon === b.defaultCity.lon &&
+    a.spaceType === b.spaceType &&
+    a.groupSize === b.groupSize &&
+    a.setupComplete === b.setupComplete &&
     JSON.stringify(a.alerts) === JSON.stringify(b.alerts) &&
     a.theme === b.theme
   );
