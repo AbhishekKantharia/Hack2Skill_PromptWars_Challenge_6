@@ -216,7 +216,7 @@ export async function generateAssistantReply(
 
       if (res.ok) {
         const data = await res.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        const text = validateAssistantText(data.candidates?.[0]?.content?.parts?.[0]?.text);
         if (text) {
           return {
             answer: withDemoBanner(text, req.airQuality),
@@ -247,7 +247,6 @@ export async function generateAssistantReply(
           max_tokens: 700,
           messages: [
             { role: 'system', content: systemPrompt },
-            ...safeHistory(req.history),
             { role: 'user', content: JSON.stringify(req.question) },
           ],
         }),
@@ -256,7 +255,7 @@ export async function generateAssistantReply(
 
       if (res.ok) {
         const data = await res.json();
-        const text = data.choices?.[0]?.message?.content;
+        const text = validateAssistantText(data.choices?.[0]?.message?.content);
         if (text) {
           return {
             answer: withDemoBanner(text, req.airQuality),

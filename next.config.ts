@@ -8,9 +8,9 @@ const contentSecurityPolicy = [
   "frame-ancestors 'none'",
   "script-src 'self' 'unsafe-inline' https://vercel.live",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https:",
+  "img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org",
   "font-src 'self' data:",
-  "connect-src 'self' https: wss:",
+  "connect-src 'self' https://generativelanguage.googleapis.com https://api.openai.com https://*.supabase.co",
   "worker-src 'self' blob:",
 ].join('; ');
 

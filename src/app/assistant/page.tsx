@@ -140,7 +140,7 @@ export default function AssistantPage() {
       <div className="flex items-start gap-2.5 rounded-2xl border border-sky-200 bg-sky-50/80 p-3.5 text-xs text-sky-950 dark:border-sky-800/60 dark:bg-sky-950/40 dark:text-sky-100">
         <ShieldCheck className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400 mt-0.5" />
         <div>
-          <strong>AI Safety &amp; Transparency:</strong> Responses explain <em>why</em> each step matters, include low-cost/free alternatives, state model uncertainty, and avoid medical diagnoses. For respiratory symptoms or health decisions, consult a qualified healthcare professional.
+          <strong>AI Safety &amp; Transparency:</strong> Responses explain <em>why</em> each step matters, include low-cost/free alternatives, state model uncertainty, and avoid medical diagnoses. If a provider key is configured, your question and current air-quality context are sent to that AI provider; do not share sensitive personal details. For respiratory symptoms or health decisions, consult a qualified healthcare professional.
         </div>
       </div>
 
