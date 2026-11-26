@@ -10,6 +10,12 @@ import { apiFetch, prefetchApiGet } from '@/lib/client-api';
 
 const EMPTY_STATIONS: AirQualityStation[] = [];
 const GLOBAL_MAP_PATH = '/api/air-quality?multi=true';
+const POLLUTANT_GUIDELINES: Record<string, number> = {
+  pm25: 15,
+  pm10: 45,
+  no2: 25,
+  o3: 100,
+};
 
 const AirMapLeaflet = dynamic(() => import('@/components/AirMapLeaflet'), {
   ssr: false,
@@ -27,6 +33,8 @@ export default function LiveMapPage() {
   const [globalStations, setGlobalStations] = useState<AirQualityStation[]>([]);
   const [loadingGlobal, setLoadingGlobal] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const globalPath = `${GLOBAL_MAP_PATH}&demo=${settings.forceDemoMode}`;
+  const warmGlobal = () => void prefetchApiGet(globalPath);
 
   useEffect(() => {
     if (scope !== 'global') return;
@@ -36,10 +44,10 @@ export default function LiveMapPage() {
       setLoadingGlobal(true);
       setGlobalError(null);
       try {
-        const res = await apiFetch(
-          `/api/air-quality?multi=true&demo=${settings.forceDemoMode}`,
-          { cache: 'no-store', signal: controller.signal }
-        );
+        const res = await apiFetch(globalPath, {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (active) setGlobalStations(data.stations ?? []);
@@ -56,15 +64,12 @@ export default function LiveMapPage() {
       active = false;
       controller.abort();
     };
-  }, [scope, settings.forceDemoMode]);
+  }, [scope, globalPath]);
 
   const stations = useMemo(
     () => (scope === 'global' ? globalStations : (airQuality?.stations ?? EMPTY_STATIONS)),
     [scope, globalStations, airQuality?.stations]
   );
-
-  const globalPath = `${GLOBAL_MAP_PATH}&demo=${settings.forceDemoMode}`;
-  const warmGlobal = () => void prefetchApiGet(globalPath);
 
   return (
     <div className="space-y-6">
@@ -96,7 +101,10 @@ export default function LiveMapPage() {
             <button
               type="button"
               onClick={() => setScope('global')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition ${
+              onMouseEnter={warmGlobal}
+              onFocus={warmGlobal}
+              onTouchStart={warmGlobal}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold transition-colors ${
                 scope === 'global'
                   ? 'bg-sky-600 text-white'
                   : 'text-slate-600 dark:text-slate-300'
@@ -159,7 +167,7 @@ export default function LiveMapPage() {
         ) : (
           <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-600 dark:text-slate-300">
             <span className="inline-flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> ≤50% of WHO {metric.toUpperCase()} ({pollutantGuidelines[metric]} µg/m³)
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> ≤50% of WHO {metric.toUpperCase()} ({POLLUTANT_GUIDELINES[metric]} µg/m³)
             </span>
             <span className="inline-flex items-center gap-1">
               <span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> ≤100% reference
