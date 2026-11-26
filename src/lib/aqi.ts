@@ -92,7 +92,7 @@ export function determineDominantPollutant(p: PollutantReadings): string {
   if (p.o3 !== null) ratios.push({ label: 'O3', score: p.o3 / 100 });
   if (p.so2 !== null) ratios.push({ label: 'SO2', score: p.so2 / 40 });
   if (p.co !== null) ratios.push({ label: 'CO', score: p.co / 4000 });
-  if (ratios.length === 0) return 'PM2.5';
+  if (ratios.length === 0) return 'Unknown';
   ratios.sort((a, b) => b.score - a.score);
   return ratios[0].label;
 }

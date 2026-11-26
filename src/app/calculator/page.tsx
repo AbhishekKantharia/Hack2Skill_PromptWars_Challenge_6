@@ -26,6 +26,7 @@ import {
   SIMULATOR_SCENARIOS,
   SUSTAINABILITY_ACTIONS,
 } from '@/lib/calculations';
+import { apiFetch } from '@/lib/client-api';
 
 export default function CalculatorAndSimulatorPage() {
   const [frequencies, setFrequencies] = useState<Record<string, number>>({
@@ -46,7 +47,7 @@ export default function CalculatorAndSimulatorPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/calculator', { cache: 'no-store' });
+        const res = await apiFetch('/api/calculator', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           if (data.frequencies) setFrequencies(data.frequencies);
@@ -62,16 +63,19 @@ export default function CalculatorAndSimulatorPage() {
 
   async function handleSaveProgress() {
     setSaving(true);
+    setSavedNotice(null);
     try {
-      const res = await fetch('/api/calculator', {
+      const res = await apiFetch('/api/calculator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ frequencies }),
       });
-      if (res.ok) {
-        setSavedNotice('Weekly action plan saved!');
-        setTimeout(() => setSavedNotice(null), 3000);
-      }
+      const data = await res.json().catch(() => null);
+      setSavedNotice(res.ok ? 'Weekly action plan saved!' : data?.error ?? 'Could not save your plan.');
+      setTimeout(() => setSavedNotice(null), 3000);
+    } catch {
+      setSavedNotice('Network error. Your plan was not saved.');
+      setTimeout(() => setSavedNotice(null), 3000);
     } finally {
       setSaving(false);
     }
@@ -356,8 +360,11 @@ export default function CalculatorAndSimulatorPage() {
             <div className="mt-1 text-3xl font-black text-sky-600 dark:text-sky-400">
               ~{simResult.localSectorEmissionDropPct}%
             </div>
-            <div className="text-[11px] text-slate-500">
-              {simResult.scenario.localPm25ProxyNote}
+            <div className="text-[11px] font-semibold text-sky-800 dark:text-sky-300">
+              Sector-activity proxy (upper bound), not AQI
+            </div>
+            <div className="mt-1 text-[11px] text-slate-500">
+              {simResult.proxyNote} {simResult.scenario.localPm25ProxyNote}
             </div>
           </div>
         </div>

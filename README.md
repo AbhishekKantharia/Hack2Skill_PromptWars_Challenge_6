@@ -34,7 +34,9 @@ BreatheWise AI is a full-stack, GenAI-powered urban air quality platform built w
 9. **User Settings (`/settings`)**
    - Sensitivity groups, budget tiers, default city, metric/imperial units, Light/Dark theme, Demo Mode toggle, and customizable Intelligent Alert thresholds.
 10. **Competition Presentation (`/presentation`)**
-    - Interactive deck covering Problem, Solution, Innovation, Technology, Social Impact, and a 2-minute judge walkthrough.
+     - Interactive deck covering Problem, Solution, Innovation, Technology, Social Impact, and a 2-minute judge walkthrough.
+
+**Data honesty:** live readings are used only when a real response contains usable AQI/PM2.5; missing pollutant values stay `null` and display as `N/A` with an uncertainty note. Demo values are always labeled `Demo Mode` and are never presented as measurements. Personal settings, chat, challenge joins, and impact logs are isolated per browser session and never mixed with the public community feed.
 
 ---
 
@@ -52,7 +54,11 @@ BreatheWise AI is a full-stack, GenAI-powered urban air quality platform built w
 │   │   ├── demo-data.ts                 # Sample reference profiles, cities, challenges
 │   │   ├── indoor-and-learn-data.ts     # Budget-tiered indoor guidance & pollutant guides
 │   │   ├── routine-engine.ts            # "My Cleaner Day" forecast-aware scheduler
-│   │   ├── store.ts                     # Supabase + automatic local JSON store persistence
+│   │   ├── request-context.ts           # Validated x-session-id extraction
+│   │   ├── client-api.ts                # Browser session header + typed apiFetch helper
+│   │   ├── rate-limit.ts                # Per-session in-memory request limit (12/min)
+│   │   ├── validation.ts                # Allowlisted, bounded API input parsers
+│   │   ├── store.ts                     # Session-scoped Supabase or local JSON persistence
 │   │   └── __tests__/breathewise.test.ts# Automated Vitest suite
 │   ├── components/
 │   │   ├── BreatheWiseProvider.tsx      # Global state, city, alerts, theme, Demo Mode context
@@ -111,10 +117,24 @@ Open `http://localhost:3000`.
 ### 4. Run tests, typecheck, and production build
 ```bash
 npm run typecheck
+npm run lint
 npm test
 npm run build
 npm start
 ```
+
+All four checks (`typecheck`, `lint`, 15 tests, production build) pass out of the box.
+
+---
+
+## Privacy & API Behavior
+
+- Every browser receives a random `breathewise-session-id` in `localStorage`; all client API calls send it as `x-session-id` via `src/lib/client-api.ts`. Invalid or missing IDs get a one-off server-generated ID.
+- `GET/PATCH /api/settings`, `GET/POST/DELETE /api/chat`, `POST /api/routine`, `POST /api/calculator`, and `POST /api/community` are session-scoped. Community reports are public; upvotes and challenge joins are deduplicated per session.
+- API inputs are parsed through `src/lib/validation.ts` (types, ranges, city coordinates, alert thresholds, frequencies, categories). Unrecognized values are rejected or ignored, never trusted verbatim.
+- Chat, routine, and community writes are rate-limited to 12 requests per minute per session with a clear `429` message.
+- Local persistence uses `data/local-store.json` (gitignored). Override with `BREATHEWISE_STORE_PATH=/path/to/store.json`; tests use an in-memory store.
+- Supabase personal tables remain service-role only; RLS policies allow anonymous reads of community observations/challenges and anonymous submission of `user_submitted` reports.
 
 ---
 

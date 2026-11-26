@@ -6,6 +6,7 @@ import { Globe2, Layers, MapPin, Radio } from 'lucide-react';
 import { useBreatheWise } from '@/components/BreatheWiseProvider';
 import type { AirQualityStation } from '@/types/breathewise';
 import { getAqiMeta } from '@/lib/aqi';
+import { apiHeaders } from '@/lib/client-api';
 
 const AirMapLeaflet = dynamic(() => import('@/components/AirMapLeaflet'), {
   ssr: false,
@@ -31,12 +32,13 @@ export default function LiveMapPage() {
       try {
         const res = await fetch(
           `/api/air-quality?multi=true&demo=${settings.forceDemoMode}`,
-          { cache: 'no-store' }
+          { cache: 'no-store', headers: apiHeaders() }
         );
-        if (res.ok) {
-          const data = await res.json();
-          if (active) setGlobalStations(data.stations ?? []);
-        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (active) setGlobalStations(data.stations ?? []);
+      } catch {
+        if (active) setGlobalStations([]);
       } finally {
         if (active) setLoadingGlobal(false);
       }
@@ -60,7 +62,7 @@ export default function LiveMapPage() {
             Live Air Quality Map
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-300">
-            Interactive spatial visualization distinguishing official ground sensors, CAMS grid models, and Demo Mode reference points.
+            Interactive visualization distinguishing WAQI ground monitors (when configured), atmospheric model grid nodes, and clearly labeled Demo Mode reference points.
           </p>
         </div>
 
@@ -117,20 +119,37 @@ export default function LiveMapPage() {
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-600 dark:text-slate-300">
-          <span className="inline-flex items-center gap-1">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Good (0–50)
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> Moderate (51–100)
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <span className="h-2.5 w-2.5 rounded-full bg-orange-500" /> USG (101–150)
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Unhealthy (151+)
-          </span>
-        </div>
+        {metric === 'aqi' ? (
+          <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Good (0–50)
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> Moderate (51–100)
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-orange-500" /> USG (101–150)
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Unhealthy (151+)
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> ≤50% WHO reference
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> ≤100% reference
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-orange-500" /> ≤200% reference
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> &gt;200% reference
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Interactive Leaflet Map */}

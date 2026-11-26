@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   CalendarClock,
   CheckCircle2,
@@ -16,6 +16,7 @@ import {
   Wind,
 } from 'lucide-react';
 import { useBreatheWise } from '@/components/BreatheWiseProvider';
+import { apiFetch } from '@/lib/client-api';
 import type { BudgetTier, DailyRoutineResponse, SensitivityGroup } from '@/types/breathewise';
 
 const ACTIVITIES = [
@@ -41,11 +42,13 @@ export default function CleanerDayPage() {
   ]);
   const [routine, setRoutine] = useState<DailyRoutineResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function generateRoutine() {
     setLoading(true);
+    setError(null);
     try {
-      const res = await fetch('/api/routine', {
+      const res = await apiFetch('/api/routine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -57,19 +60,18 @@ export default function CleanerDayPage() {
           forceDemoMode: settings.forceDemoMode,
         }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setRoutine(data.routine);
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error ?? 'Could not generate a routine. Please try again.');
+        return;
       }
+      setRoutine(data.routine);
+    } catch {
+      setError('Network error. Could not generate a routine.');
     } finally {
       setLoading(false);
     }
   }
-
-  useEffect(() => {
-    void generateRoutine();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCity.name, settings.forceDemoMode]);
 
   function toggleActivity(id: string) {
     setPlannedActivities((prev) =>
@@ -190,6 +192,28 @@ export default function CleanerDayPage() {
           })}
         </div>
       </div>
+
+      {error && (
+        <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-sm font-semibold text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200">
+          {error}
+        </div>
+      )}
+
+      {!routine && !loading && (
+        <div className="rounded-3xl border border-dashed border-emerald-300 bg-white p-8 text-center dark:border-emerald-800 dark:bg-slate-900">
+          <CalendarClock className="mx-auto h-8 w-8 text-emerald-500" />
+          <p className="mt-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
+            Choose your preferences above, then generate a forecast-aware schedule.
+          </p>
+          <button
+            type="button"
+            onClick={() => void generateRoutine()}
+            className="mt-4 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+          >
+            Generate Today’s Schedule
+          </button>
+        </div>
+      )}
 
       {/* Routine Output */}
       {routine && (

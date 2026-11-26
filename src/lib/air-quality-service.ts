@@ -3,12 +3,19 @@ import type {
   AirQualityStation,
   CityLocation,
   HourlyAirPoint,
+  PollutantReadings,
 } from '@/types/breathewise';
 import { determineDominantPollutant, getAqiMeta, pm25ToUsAqi } from '@/lib/aqi';
 import { buildDemoAirQualityPayload, FEATURED_CITIES } from '@/lib/demo-data';
 
+function roundOrNull(value: unknown, digits: number): number | null {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Number(value.toFixed(digits))
+    : null;
+}
+
 function describeWmoWeatherCode(code: number | null | undefined): string {
-  if (code === null || code === undefined) return 'Observed conditions';
+  if (code === null || code === undefined) return 'Weather data unavailable';
   if (code === 0) return 'Clear sky';
   if (code <= 3) return 'Partly cloudy';
   if (code === 45 || code === 48) return 'Fog / mist';
@@ -19,11 +26,15 @@ function describeWmoWeatherCode(code: number | null | undefined): string {
   return 'Variable sky';
 }
 
+function isFutureLocalHour(iso: string, localNow: string): boolean {
+  if (iso.includes('T') && localNow.includes('T')) return iso > localNow;
+  return new Date(iso).getTime() > Date.now();
+}
+
 export async function searchCities(query: string): Promise<CityLocation[]> {
   const trimmed = query.trim();
   if (!trimmed) return FEATURED_CITIES;
 
-  // Always allow matching local featured cities immediately if offline
   const localMatches = FEATURED_CITIES.filter(
     (c) =>
       c.name.toLowerCase().includes(trimmed.toLowerCase()) ||
@@ -47,12 +58,12 @@ export async function searchCities(query: string): Promise<CityLocation[]> {
         longitude: number;
         timezone?: string;
       }) => ({
-        name: item.name,
-        country: item.country ?? 'Unknown',
-        region: item.admin1,
-        lat: item.latitude,
-        lon: item.longitude,
-        timezone: item.timezone,
+        name: String(item.name).slice(0, 80),
+        country: String(item.country ?? 'Unknown').slice(0, 80),
+        region: item.admin1 ? String(item.admin1).slice(0, 80) : undefined,
+        lat: Number(item.latitude),
+        lon: Number(item.longitude),
+        timezone: item.timezone ? String(item.timezone).slice(0, 64) : undefined,
       })
     );
   } catch {
@@ -65,97 +76,82 @@ export async function getAirQualityForLocation(
   options?: { forceDemoMode?: boolean }
 ): Promise<AirQualityPayload> {
   const forceDemo =
-    options?.forceDemoMode === true || process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+    options?.forceDemoMode === true ||
+    (options?.forceDemoMode === undefined && process.env.NEXT_PUBLIC_DEMO_MODE === 'true');
   if (forceDemo) {
     return buildDemoAirQualityPayload(city);
   }
 
   try {
+    const locationParams = `latitude=${encodeURIComponent(String(city.lat))}&longitude=${encodeURIComponent(String(city.lon))}`;
     const aqUrl =
-      `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${city.lat}&longitude=${city.lon}` +
+      `https://air-quality-api.open-meteo.com/v1/air-quality?${locationParams}` +
       `&current=us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone` +
       `&hourly=us_aqi,pm10,pm2_5,nitrogen_dioxide,ozone` +
       `&past_hours=8&forecast_hours=16&timezone=auto`;
-
     const weatherUrl =
-      `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}` +
+      `https://api.open-meteo.com/v1/forecast?${locationParams}` +
       `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code&timezone=auto`;
 
     const [aqRes, weatherRes] = await Promise.all([
       fetch(aqUrl, { cache: 'no-store', signal: AbortSignal.timeout(7000) }),
       fetch(weatherUrl, { cache: 'no-store', signal: AbortSignal.timeout(7000) }),
     ]);
-
-    if (!aqRes.ok) {
-      throw new Error(`Open-Meteo Air Quality HTTP ${aqRes.status}`);
-    }
+    if (!aqRes.ok) throw new Error(`Air quality API returned HTTP ${aqRes.status}`);
 
     const aqJson = await aqRes.json();
     const weatherJson = weatherRes.ok ? await weatherRes.json() : null;
-
     const current = aqJson.current ?? {};
-    const pm25 = typeof current.pm2_5 === 'number' ? Number(current.pm2_5.toFixed(1)) : null;
-    const pm10 = typeof current.pm10 === 'number' ? Number(current.pm10.toFixed(1)) : null;
-    const no2 =
-      typeof current.nitrogen_dioxide === 'number'
-        ? Number(current.nitrogen_dioxide.toFixed(1))
-        : null;
-    const so2 =
-      typeof current.sulphur_dioxide === 'number'
-        ? Number(current.sulphur_dioxide.toFixed(1))
-        : null;
-    const co =
-      typeof current.carbon_monoxide === 'number'
-        ? Number(current.carbon_monoxide.toFixed(0))
-        : null;
-    const o3 = typeof current.ozone === 'number' ? Number(current.ozone.toFixed(1)) : null;
 
-    const aqi =
-      typeof current.us_aqi === 'number'
-        ? Math.round(current.us_aqi)
-        : pm25 !== null
-          ? pm25ToUsAqi(pm25)
-          : 50;
+    const pollutants: PollutantReadings = {
+      pm25: roundOrNull(current.pm2_5, 1),
+      pm10: roundOrNull(current.pm10, 1),
+      no2: roundOrNull(current.nitrogen_dioxide, 1),
+      so2: roundOrNull(current.sulphur_dioxide, 1),
+      co: roundOrNull(current.carbon_monoxide, 0),
+      o3: roundOrNull(current.ozone, 1),
+    };
 
-    const pollutants = { pm25, pm10, no2, so2, co, o3 };
-    const meta = getAqiMeta(aqi);
-    const dominantPollutant = determineDominantPollutant(pollutants);
+    const measuredAqi = roundOrNull(current.us_aqi, 0);
+    const aqi = measuredAqi ?? (pollutants.pm25 !== null ? pm25ToUsAqi(pollutants.pm25) : null);
+    if (aqi === null) {
+      throw new Error('No usable AQI or PM2.5 measurement returned for this location');
+    }
 
-    const hourlyTimes: string[] = aqJson.hourly?.time ?? [];
+    const hourlyTimes: string[] = Array.isArray(aqJson.hourly?.time) ? aqJson.hourly.time : [];
     const hourlyAqi: Array<number | null> = aqJson.hourly?.us_aqi ?? [];
     const hourlyPm25: Array<number | null> = aqJson.hourly?.pm2_5 ?? [];
     const hourlyPm10: Array<number | null> = aqJson.hourly?.pm10 ?? [];
     const hourlyO3: Array<number | null> = aqJson.hourly?.ozone ?? [];
     const hourlyNo2: Array<number | null> = aqJson.hourly?.nitrogen_dioxide ?? [];
+    const localNow = typeof current.time === 'string' ? current.time : hourlyTimes[0] ?? '';
 
-    const nowMs = Date.now();
-    const hourly: HourlyAirPoint[] = hourlyTimes.slice(0, 24).map((iso, i) => {
-      const dt = new Date(iso);
-      const pm25Val = hourlyPm25[i] ?? pm25 ?? 12;
-      const aqiVal =
-        typeof hourlyAqi[i] === 'number'
-          ? Math.round(hourlyAqi[i] as number)
-          : pm25ToUsAqi(pm25Val);
-      return {
-        time: iso,
-        label: iso.includes('T') ? iso.split('T')[1].slice(0, 5) : dt.toTimeString().slice(0, 5),
-        aqi: aqiVal,
-        pm25: Number((pm25Val ?? 0).toFixed(1)),
-        pm10: Number((hourlyPm10[i] ?? pm10 ?? 0).toFixed(1)),
-        o3: Number((hourlyO3[i] ?? o3 ?? 0).toFixed(1)),
-        no2: Number((hourlyNo2[i] ?? no2 ?? 0).toFixed(1)),
-        isForecast: dt.getTime() > nowMs,
-      };
-    });
+    const hourly: HourlyAirPoint[] = hourlyTimes
+      .slice(0, 24)
+      .map((iso, index): HourlyAirPoint | null => {
+        const pm25Val = roundOrNull(hourlyPm25[index], 1);
+        const rawHourAqi = roundOrNull(hourlyAqi[index], 0);
+        const hourAqi = rawHourAqi ?? (pm25Val !== null ? pm25ToUsAqi(pm25Val) : null);
+        if (hourAqi === null) return null;
+        return {
+          time: iso,
+          label: iso.includes('T') ? iso.slice(11, 16) : iso,
+          aqi: hourAqi,
+          pm25: pm25Val,
+          pm10: roundOrNull(hourlyPm10[index], 1),
+          o3: roundOrNull(hourlyO3[index], 1),
+          no2: roundOrNull(hourlyNo2[index], 1),
+          isForecast: localNow ? isFutureLocalHour(iso, localNow) : isFutureLocalHour(iso, ''),
+        };
+      })
+      .filter((point): point is HourlyAirPoint => point !== null);
+
+    if (hourly.length === 0) {
+      throw new Error('No usable hourly air quality series returned for this location');
+    }
 
     const wCurrent = weatherJson?.current ?? {};
-    const timestamp =
-      typeof current.time === 'string'
-        ? current.time
-        : new Date().toISOString();
-
-    // Build real spatial grid points around the queried location using Open-Meteo model grid
-    // and optionally WAQI station if WAQI_API_TOKEN is configured.
+    const timestamp = typeof current.time === 'string' ? current.time : new Date().toISOString();
     const stations: AirQualityStation[] = [
       {
         id: `openmeteo-center-${city.lat.toFixed(2)}-${city.lon.toFixed(2)}`,
@@ -164,91 +160,83 @@ export async function getAirQualityForLocation(
         lat: city.lat,
         lon: city.lon,
         aqi,
-        pm25: pm25 ?? 0,
-        pm10: pm10 ?? 0,
-        no2: no2 ?? 0,
-        o3: o3 ?? 0,
+        pm25: pollutants.pm25,
+        pm10: pollutants.pm10,
+        no2: pollutants.no2,
+        o3: pollutants.o3,
         sourceType: 'model_grid',
-        sourceLabel: 'Open-Meteo CAMS Atmospheric Grid (Live)',
+        sourceLabel: 'Open-Meteo CAMS Atmospheric Grid (Live Model)',
         updatedAt: timestamp,
       },
     ];
 
-    // Optional WAQI ground monitoring station enrichment when token is present
+    let hasGroundStation = false;
     const waqiToken = process.env.WAQI_API_TOKEN;
     if (waqiToken) {
       try {
         const waqiRes = await fetch(
-          `https://api.waqi.info/feed/geo:${city.lat};${city.lon}/?token=${encodeURIComponent(
+          `https://api.waqi.info/feed/geo:${encodeURIComponent(String(city.lat))};${encodeURIComponent(String(city.lon))}/?token=${encodeURIComponent(
             waqiToken
           )}`,
           { cache: 'no-store', signal: AbortSignal.timeout(3500) }
         );
         if (waqiRes.ok) {
           const waqiJson = await waqiRes.json();
-          if (waqiJson.status === 'ok' && waqiJson.data) {
-            const d = waqiJson.data;
-            const geo = d.city?.geo;
-            if (Array.isArray(geo) && geo.length === 2) {
-              stations.push({
-                id: `waqi-${d.idx ?? 'station'}`,
-                name: d.city?.name ?? `${city.name} Ground Monitor`,
-                city: city.name,
-                lat: Number(geo[0]),
-                lon: Number(geo[1]),
-                aqi: typeof d.aqi === 'number' ? d.aqi : aqi,
-                pm25: d.iaqi?.pm25?.v ?? pm25 ?? 0,
-                pm10: d.iaqi?.pm10?.v ?? pm10 ?? 0,
-                no2: d.iaqi?.no2?.v ?? no2 ?? 0,
-                o3: d.iaqi?.o3?.v ?? o3 ?? 0,
-                sourceType: 'official',
-                sourceLabel: 'WAQI Official Ground Monitoring Station',
-                updatedAt: d.time?.iso ?? timestamp,
-              });
-            }
+          const d = waqiJson?.data;
+          if (waqiJson.status === 'ok' && d && typeof d.aqi === 'number' && Array.isArray(d.city?.geo)) {
+            stations.push({
+              id: `waqi-${d.idx ?? 'station'}`,
+              name: String(d.city?.name ?? `${city.name} Ground Monitor`).slice(0, 80),
+              city: city.name,
+              lat: Number(d.city.geo[0]),
+              lon: Number(d.city.geo[1]),
+              aqi: Math.round(d.aqi),
+              pm25: roundOrNull(d.iaqi?.pm25?.v, 1),
+              pm10: roundOrNull(d.iaqi?.pm10?.v, 1),
+              no2: roundOrNull(d.iaqi?.no2?.v, 1),
+              o3: roundOrNull(d.iaqi?.o3?.v, 1),
+              sourceType: 'official',
+              sourceLabel: 'WAQI Ground Monitoring Station',
+              updatedAt: d.time?.iso ?? timestamp,
+            });
+            hasGroundStation = true;
           }
         }
       } catch {
-        // Non-blocking optional enrichment
+        // Optional enrichment is non-blocking and never mislabeled as present.
       }
     }
+
+    const missing = Object.entries(pollutants)
+      .filter(([, value]) => value === null)
+      .map(([key]) => key);
 
     return {
       location: city,
       aqi,
       aqiScale: 'US EPA',
-      category: meta.category,
-      dominantPollutant,
+      category: getAqiMeta(aqi).category,
+      dominantPollutant: determineDominantPollutant(pollutants),
       pollutants,
       weather: {
-        temperatureC:
-          typeof wCurrent.temperature_2m === 'number'
-            ? Number(wCurrent.temperature_2m.toFixed(1))
-            : null,
-        humidityPct:
-          typeof wCurrent.relative_humidity_2m === 'number'
-            ? Math.round(wCurrent.relative_humidity_2m)
-            : null,
-        windSpeedKmh:
-          typeof wCurrent.wind_speed_10m === 'number'
-            ? Number(wCurrent.wind_speed_10m.toFixed(1))
-            : null,
-        windDirectionDeg:
-          typeof wCurrent.wind_direction_10m === 'number'
-            ? Math.round(wCurrent.wind_direction_10m)
-            : null,
-        condition: describeWmoWeatherCode(wCurrent.weather_code),
+        temperatureC: roundOrNull(wCurrent.temperature_2m, 1),
+        humidityPct: roundOrNull(wCurrent.relative_humidity_2m, 0),
+        windSpeedKmh: roundOrNull(wCurrent.wind_speed_10m, 1),
+        windDirectionDeg: roundOrNull(wCurrent.wind_direction_10m, 0),
+        condition: weatherJson ? describeWmoWeatherCode(wCurrent.weather_code) : 'Weather data unavailable',
       },
       hourly,
       stations,
       dataMode: 'live',
-      sourceName: waqiToken
-        ? 'Open-Meteo CAMS Air Quality & Weather + WAQI Ground Station'
-        : 'Open-Meteo CAMS Global Air Quality & Weather API',
+      sourceName:
+        `Open-Meteo CAMS Global Air Quality & Weather API${hasGroundStation ? ' + WAQI ground station' : ''}`,
       sourceUrl: 'https://open-meteo.com/en/docs/air-quality-api',
       timestamp,
       uncertaintyNote:
-        'Satellite & atmospheric reanalysis models (~11–40 km grid) represent neighborhood-scale background conditions and may under-capture hyperlocal roadside exhaust, construction dust, or indoor cooking smoke.',
+        'Atmospheric model grid (~11–40 km) represents neighborhood-scale background conditions and may under-capture roadside exhaust, construction dust, or indoor sources. ' +
+        (missing.length
+          ? `Unavailable in this feed: ${missing.join(', ')} (shown as N/A, never substituted).`
+          : 'All reported current pollutant fields are present in the upstream response.'),
     };
   } catch {
     return buildDemoAirQualityPayload(city);

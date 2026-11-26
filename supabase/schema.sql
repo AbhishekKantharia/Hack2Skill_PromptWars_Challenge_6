@@ -109,3 +109,25 @@ alter table chat_messages enable row level security;
 alter table sustainability_logs enable row level security;
 alter table community_observations enable row level security;
 alter table community_challenges enable row level security;
+
+-- Public community feed: anyone may read reports, anyone may submit a
+-- neighborhood-level user report. Personal tables above remain service-role only.
+create policy "Community observations are readable"
+  on community_observations for select to anon, authenticated
+  using (true);
+
+create policy "Users may submit neighborhood reports"
+  on community_observations for insert to anon, authenticated
+  with check (
+    verification_type = 'user_submitted'
+    and char_length(neighborhood) between 1 and 80
+    and char_length(description) between 1 and 320
+    and upvotes between 0 and 1
+  );
+
+create policy "Community challenges are readable"
+  on community_challenges for select to anon, authenticated
+  using (true);
+
+create index if not exists community_observations_created_at_idx
+  on community_observations (created_at desc);

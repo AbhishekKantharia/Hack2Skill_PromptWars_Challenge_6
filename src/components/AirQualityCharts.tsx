@@ -17,13 +17,37 @@ type MetricKey = 'aqi' | 'pm25' | 'pm10' | 'o3' | 'no2';
 
 const METRIC_META: Record<
   MetricKey,
-  { label: string; unit: string; color: string; guideline?: number }
+  { label: string; unit: string; color: string; guideline?: number; referenceLabel?: string }
 > = {
   aqi: { label: 'US AQI', unit: 'AQI', color: '#10b981', guideline: 100 },
-  pm25: { label: 'PM2.5', unit: 'µg/m³', color: '#0284c7', guideline: 15 },
-  pm10: { label: 'PM10', unit: 'µg/m³', color: '#0d9488', guideline: 45 },
-  o3: { label: 'Ozone (O₃)', unit: 'µg/m³', color: '#6366f1', guideline: 100 },
-  no2: { label: 'NO₂', unit: 'µg/m³', color: '#f59e0b', guideline: 25 },
+  pm25: {
+    label: 'PM2.5',
+    unit: 'µg/m³',
+    color: '#0284c7',
+    guideline: 15,
+    referenceLabel: 'WHO 24h guide (15)',
+  },
+  pm10: {
+    label: 'PM10',
+    unit: 'µg/m³',
+    color: '#0d9488',
+    guideline: 45,
+    referenceLabel: 'WHO 24h guide (45)',
+  },
+  o3: {
+    label: 'Ozone (O₃)',
+    unit: 'µg/m³',
+    color: '#6366f1',
+    guideline: 100,
+    referenceLabel: 'WHO 8h guide (100)',
+  },
+  no2: {
+    label: 'NO₂',
+    unit: 'µg/m³',
+    color: '#f59e0b',
+    guideline: 25,
+    referenceLabel: 'WHO 24h guide (25)',
+  },
 };
 
 export function AirQualityCharts({ hourly }: { hourly: HourlyAirPoint[] }) {
@@ -116,7 +140,10 @@ export function AirQualityCharts({ hourly }: { hourly: HourlyAirPoint[] }) {
                 color: '#f8fafc',
                 fontSize: '12px',
               }}
-              formatter={(value) => [`${value} ${meta.unit}`, meta.label]}
+              formatter={(value) => [
+                value === null || value === undefined ? 'Unavailable' : `${value} ${meta.unit}`,
+                meta.label,
+              ]}
               labelFormatter={(label, items) => {
                 const pt = items?.[0]?.payload as HourlyAirPoint | undefined;
                 return `${label} (${pt?.isForecast ? 'Modeled Forecast' : 'Recent Observation'})`;
@@ -131,7 +158,7 @@ export function AirQualityCharts({ hourly }: { hourly: HourlyAirPoint[] }) {
                   value:
                     metric === 'aqi'
                       ? 'Moderate/USG Threshold (100)'
-                      : `WHO 24h Guide (${meta.guideline})`,
+                      : meta.referenceLabel ?? `Reference (${meta.guideline})`,
                   position: 'insideTopRight',
                   fill: '#d97706',
                   fontSize: 10,

@@ -10,7 +10,7 @@
   - Weather dispersion card (wind speed & humidity).
   - **Intelligent Alerts** banner (elevated AQI advisory, forecasted spike, or favorable ventilation window).
   - Switch cities using the quick pills (**New Delhi** → **San Francisco**) or top search bar, and toggle **Dark/Light Mode**.
-  - Point out the **Live vs. Demo Mode** badge and transparent uncertainty note.
+   - Point out the **Live vs. Demo Mode** badge and transparent uncertainty note. Toggle **Demo Mode** in `/settings` to show that sample values are always explicitly labeled and never presented as measurements; missing pollutant readings appear as `N/A`.
 
 ## Act 2: Signature Feature — "My Cleaner Day" (1:05 – 1:45)
 - Navigate to `/cleaner-day`.
@@ -27,4 +27,4 @@
 - Navigate to `/calculator`.
 - Adjust the public transit slider and show real-time CO₂e, fuel, and kWh updates with documented EPA/IEA formulas—highlighting how GHG savings are clearly separated from local air pollutants.
 - Scroll to the **What-If Urban Scenario Simulator** and adjust *"20% of unnecessary car trips replaced"* to show clearly labeled simulated neighborhood outcomes.
-- End on `/community`: submit a quick neighborhood report or click **+ Log Action** on a clean-air challenge, emphasizing privacy protection (no home GPS exposed) and clear separation from official sensors.
+- End on `/community`: submit a quick neighborhood report or click **+ Log Action** on a clean-air challenge, emphasizing privacy protection (no home GPS exposed), per-session deduplication of upvotes/joins, and clear separation from official sensors.

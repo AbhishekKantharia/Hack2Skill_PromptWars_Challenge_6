@@ -298,7 +298,7 @@ export default function DashboardPage() {
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Activity className="h-4 w-4 text-emerald-600" />
-            Live Pollutant Breakdown
+            {airQuality.dataMode === 'demo' ? 'Sample Pollutant Reference Data' : 'Live Pollutant Breakdown'}
           </h2>
           <span className="text-xs text-slate-500 dark:text-slate-400">
             All concentrations displayed with standard units &amp; WHO 2021 reference levels

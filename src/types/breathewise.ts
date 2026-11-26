@@ -39,10 +39,10 @@ export interface HourlyAirPoint {
   time: string;
   label: string;
   aqi: number;
-  pm25: number;
-  pm10: number;
-  o3: number;
-  no2: number;
+  pm25: number | null;
+  pm10: number | null;
+  o3: number | null;
+  no2: number | null;
   isForecast: boolean;
 }
 
@@ -53,10 +53,10 @@ export interface AirQualityStation {
   lat: number;
   lon: number;
   aqi: number;
-  pm25: number;
-  pm10: number;
-  no2: number;
-  o3: number;
+  pm25: number | null;
+  pm10: number | null;
+  no2: number | null;
+  o3: number | null;
   sourceType: 'official' | 'model_grid' | 'demo';
   sourceLabel: string;
   updatedAt: string;

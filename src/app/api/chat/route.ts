@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { generateAssistantReply } from '@/lib/ai-assistant';
 import { getAirQualityForLocation } from '@/lib/air-quality-service';
 import {
@@ -7,46 +8,71 @@ import {
   getChatHistory,
   getSettings,
 } from '@/lib/store';
-import type { ChatMessage, CityLocation } from '@/types/breathewise';
+import { getSessionId } from '@/lib/request-context';
+import { allowRequest } from '@/lib/rate-limit';
+import {
+  asText,
+  parseCityLocation,
+  parseSensitivityGroup,
+  readJsonObject,
+} from '@/lib/validation';
+import type { ChatMessage } from '@/types/breathewise';
 
-export async function GET() {
-  const history = await getChatHistory();
+export async function GET(req: NextRequest) {
+  const history = await getChatHistory(getSessionId(req));
   return NextResponse.json({ history });
 }
 
-export async function DELETE() {
-  await clearChatHistory();
+export async function DELETE(req: NextRequest) {
+  await clearChatHistory(getSessionId(req));
   return NextResponse.json({ cleared: true });
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const question = String(body.question ?? '').trim();
-    if (!question) {
-      return NextResponse.json({ error: 'Question is required' }, { status: 400 });
+    const sessionId = getSessionId(req);
+    if (!allowRequest(`chat:${sessionId}`)) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait a minute and try again.' },
+        { status: 429 }
+      );
     }
 
-    const settings = await getSettings();
-    const location: CityLocation = body.location ?? settings.defaultCity;
+    const body = await readJsonObject(req);
+    const question = asText(body?.question, 1000);
+    if (!question) {
+      return NextResponse.json(
+        { error: 'Question is required (maximum 1000 characters)' },
+        { status: 400 }
+      );
+    }
+
+    const settings = await getSettings(sessionId);
+    const location =
+      parseCityLocation(body?.location) ?? settings.defaultCity;
     const forceDemo =
-      typeof body.forceDemoMode === 'boolean' ? body.forceDemoMode : settings.forceDemoMode;
+      typeof body?.forceDemoMode === 'boolean' ? body.forceDemoMode : settings.forceDemoMode;
+    const sensitivityGroup =
+      parseSensitivityGroup(body?.sensitivityGroup) ?? settings.sensitivityGroup;
 
     const airQuality = await getAirQualityForLocation(location, {
       forceDemoMode: forceDemo,
     });
 
-    const existingHistory = await getChatHistory();
+    const existingHistory = await getChatHistory(sessionId);
     const reply = await generateAssistantReply({
       question,
       airQuality,
-      sensitivityGroup: body.sensitivityGroup ?? settings.sensitivityGroup,
-      history: existingHistory.map((m) => ({ role: m.role, content: m.content })),
+      sensitivityGroup,
+      history: existingHistory.slice(-6).map((m) => ({
+        role: m.role,
+        content: m.content.slice(0, 1000),
+      })),
     });
 
     const now = new Date().toISOString();
     const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
+      id: `user-${randomUUID()}`,
       role: 'user',
       content: question,
       timestamp: now,
@@ -54,9 +80,8 @@ export async function POST(req: NextRequest) {
       aqiContext: airQuality.aqi,
       dataMode: airQuality.dataMode,
     };
-
     const assistantMsg: ChatMessage = {
-      id: `assistant-${Date.now() + 1}`,
+      id: `assistant-${randomUUID()}`,
       role: 'assistant',
       content: reply.answer,
       timestamp: new Date().toISOString(),
@@ -67,17 +92,13 @@ export async function POST(req: NextRequest) {
       uncertaintyNote: reply.uncertaintyNote,
     };
 
-    await appendChatMessages([userMsg, assistantMsg]);
-
+    await appendChatMessages([userMsg, assistantMsg], sessionId);
     return NextResponse.json({
       userMessage: userMsg,
       assistantMessage: assistantMsg,
       provider: reply.usedProvider,
     });
-  } catch (err) {
-    return NextResponse.json(
-      { error: 'AI assistant request failed', detail: String(err) },
-      { status: 500 }
-    );
+  } catch {
+    return NextResponse.json({ error: 'AI assistant request failed' }, { status: 500 });
   }
 }

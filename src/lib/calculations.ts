@@ -270,8 +270,10 @@ export function evaluateSimulatorScenario(scenarioId: string, adoptionPct: numbe
   const annualCo2TonnesAvoided = Number(
     ((participatingHouseholds * scenario.co2KgPerHouseholdYearAt100Pct) / 1000).toFixed(1)
   );
-  // Illustrative local mobile/combustion emission index reduction (explicitly NOT ambient AQI points)
-  const localSectorEmissionDropPct = Number((clampedPct * 0.65).toFixed(1));
+  // Transparent upper-bound proxy: if related activity scaled perfectly linearly,
+  // the affected sector's activity would change by exactly the adoption percentage.
+  // This is NOT an ambient concentration or AQI prediction.
+  const localSectorEmissionDropPct = clampedPct;
 
   return {
     scenario,
@@ -280,6 +282,8 @@ export function evaluateSimulatorScenario(scenarioId: string, adoptionPct: numbe
     annualCo2TonnesAvoided,
     monthlyCo2TonnesAvoided: Number((annualCo2TonnesAvoided / 12).toFixed(1)),
     localSectorEmissionDropPct,
+    proxyNote:
+      'Sector-activity proxy equals the selected adoption percentage (linear upper-bound assumption). It is not a measured emission inventory change or an AQI forecast.',
     simulationLabel: 'SIMULATED SCENARIO ESTIMATE — NOT ACTUAL MEASURED AQI',
   };
 }

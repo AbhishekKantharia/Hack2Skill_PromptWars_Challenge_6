@@ -5,13 +5,13 @@ import {
   SIMULATOR_SCENARIOS,
   SUSTAINABILITY_ACTIONS,
 } from '@/lib/calculations';
-import {
-  getSavedImpactFrequencies,
-  saveImpactFrequencies,
-} from '@/lib/store';
+import { getSavedImpactFrequencies, saveImpactFrequencies } from '@/lib/store';
+import { getSessionId } from '@/lib/request-context';
+import { asFiniteNumber, parseFrequencies, readJsonObject } from '@/lib/validation';
 
-export async function GET() {
-  const frequencies = await getSavedImpactFrequencies();
+export async function GET(req: NextRequest) {
+  const sessionId = getSessionId(req);
+  const frequencies = await getSavedImpactFrequencies(sessionId);
   const impact = calculateSustainabilityImpact({ frequencies });
   return NextResponse.json({
     frequencies,
@@ -23,23 +23,30 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const sessionId = getSessionId(req);
+    const body = (await readJsonObject(req)) ?? {};
+
     if (body.type === 'simulate') {
-      const sim = evaluateSimulatorScenario(
-        String(body.scenarioId ?? 'replace_car_trips'),
-        Number(body.adoptionPct ?? 20)
-      );
-      return NextResponse.json({ simulation: sim });
+      const scenario = SIMULATOR_SCENARIOS.find((s) => s.id === body.scenarioId);
+      const adoption = asFiniteNumber(body.adoptionPct, 0, 100);
+      if (!scenario || adoption === null) {
+        return NextResponse.json({ error: 'Invalid simulation scenario' }, { status: 400 });
+      }
+      return NextResponse.json({
+        simulation: evaluateSimulatorScenario(scenario.id, adoption),
+      });
     }
 
-    const rawFreqs = (body.frequencies ?? {}) as Record<string, number>;
-    const saved = await saveImpactFrequencies(rawFreqs);
-    const impact = calculateSustainabilityImpact({ frequencies: saved });
-    return NextResponse.json({ frequencies: saved, impact });
-  } catch (err) {
-    return NextResponse.json(
-      { error: 'Calculation request failed', detail: String(err) },
-      { status: 500 }
-    );
+    const frequencies = parseFrequencies(body.frequencies);
+    if (!frequencies) {
+      return NextResponse.json({ error: 'Invalid impact frequencies' }, { status: 400 });
+    }
+    const saved = await saveImpactFrequencies(frequencies, sessionId);
+    return NextResponse.json({
+      frequencies: saved,
+      impact: calculateSustainabilityImpact({ frequencies: saved }),
+    });
+  } catch {
+    return NextResponse.json({ error: 'Calculation request failed' }, { status: 500 });
   }
 }

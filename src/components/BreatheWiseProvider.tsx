@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type {
   AirQualityPayload,
   CityLocation,
@@ -8,6 +8,7 @@ import type {
   UserSettings,
 } from '@/types/breathewise';
 import { DEFAULT_USER_SETTINGS, FEATURED_CITIES } from '@/lib/demo-data';
+import { apiFetch } from '@/lib/client-api';
 
 interface BreatheWiseContextValue {
   settings: UserSettings;
@@ -18,7 +19,7 @@ interface BreatheWiseContextValue {
   aqError: string | null;
   setActiveCity: (city: CityLocation) => void;
   refreshAirQuality: (cityOverride?: CityLocation, demoOverride?: boolean) => Promise<void>;
-  updateSettings: (patch: Partial<UserSettings>) => Promise<void>;
+  updateSettings: (patch: Partial<UserSettings>) => Promise<boolean>;
   toggleTheme: () => void;
   toggleDemoMode: () => Promise<void>;
   requestGeolocation: () => void;
@@ -35,8 +36,8 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
   const [loadingAq, setLoadingAq] = useState<boolean>(true);
   const [aqError, setAqError] = useState<string | null>(null);
   const [geoStatus, setGeoStatus] = useState<string | null>(null);
+  const refreshIdRef = useRef(0);
 
-  // Apply theme class to <html>
   useEffect(() => {
     const root = document.documentElement;
     if (settings.theme === 'dark') {
@@ -44,12 +45,18 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
     } else {
       root.classList.remove('dark');
     }
+    try {
+      window.localStorage.setItem('breathewise-theme', settings.theme);
+    } catch {
+      // Storage may be unavailable in private browsing.
+    }
   }, [settings.theme]);
 
   const refreshAirQuality = useCallback(
     async (cityOverride?: CityLocation, demoOverride?: boolean) => {
       const target = cityOverride ?? activeCity;
       const demoFlag = demoOverride ?? settings.forceDemoMode;
+      const refreshId = ++refreshIdRef.current;
       setLoadingAq(true);
       setAqError(null);
       try {
@@ -60,36 +67,51 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
           country: target.country,
           demo: String(demoFlag),
         });
-        const res = await fetch(`/api/air-quality?${params.toString()}`, {
+        const res = await apiFetch(`/api/air-quality?${params.toString()}`, {
           cache: 'no-store',
         });
         if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
+          const payload = await res.json().catch(() => null);
+          throw new Error(payload?.error ?? `HTTP ${res.status}`);
         }
         const data = await res.json();
+        if (refreshId !== refreshIdRef.current) return;
         setAirQuality(data.airQuality);
         setAlerts(data.alerts ?? []);
       } catch (err) {
+        if (refreshId !== refreshIdRef.current) return;
         setAqError(err instanceof Error ? err.message : 'Failed to load air quality data');
       } finally {
-        setLoadingAq(false);
+        if (refreshId === refreshIdRef.current) setLoadingAq(false);
       }
     },
     [activeCity, settings.forceDemoMode]
   );
 
-  // Initial hydrate from persisted settings
   useEffect(() => {
     let active = true;
+    let preferredTheme: UserSettings['theme'] = 'light';
+    try {
+      const saved = window.localStorage.getItem('breathewise-theme');
+      preferredTheme =
+        saved === 'dark' || saved === 'light'
+          ? saved
+          : window.matchMedia('(prefers-color-scheme: dark)').matches
+            ? 'dark'
+            : 'light';
+    } catch {
+      preferredTheme = 'light';
+    }
     (async () => {
       try {
-        const res = await fetch('/api/settings', { cache: 'no-store' });
+        const res = await apiFetch('/api/settings', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           if (active && data.settings) {
-            setSettings(data.settings);
-            setActiveCityState(data.settings.defaultCity);
-            await refreshAirQuality(data.settings.defaultCity, data.settings.forceDemoMode);
+            const hydrated = { ...data.settings, theme: preferredTheme } as UserSettings;
+            setSettings(hydrated);
+            setActiveCityState(hydrated.defaultCity);
+            await refreshAirQuality(hydrated.defaultCity, hydrated.forceDemoMode);
             return;
           }
         }
@@ -97,6 +119,7 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
         // Use defaults
       }
       if (active) {
+        setSettings((prev) => ({ ...prev, theme: preferredTheme }));
         await refreshAirQuality(DEFAULT_USER_SETTINGS.defaultCity, false);
       }
     })();
@@ -115,35 +138,28 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
   );
 
   const updateSettings = useCallback(
-    async (patch: Partial<UserSettings>) => {
-      const merged: UserSettings = {
-        ...settings,
-        ...patch,
-        alerts: {
-          ...settings.alerts,
-          ...(patch.alerts ?? {}),
-        },
-      };
-      setSettings(merged);
+    async (patch: Partial<UserSettings>): Promise<boolean> => {
       try {
-        const res = await fetch('/api/settings', {
+        const res = await apiFetch('/api/settings', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(patch),
         });
-        if (res.ok) {
-          const data = await res.json();
-          setSettings(data.settings);
+        if (!res.ok) return false;
+        const data = await res.json();
+        setSettings(data.settings);
+        if (patch.defaultCity || typeof patch.forceDemoMode === 'boolean') {
           await refreshAirQuality(
-            patch.defaultCity ?? activeCity,
+            data.settings.defaultCity,
             data.settings.forceDemoMode
           );
         }
+        return true;
       } catch {
-        // Optimistic state retained
+        return false;
       }
     },
-    [settings, activeCity, refreshAirQuality]
+    [refreshAirQuality]
   );
 
   const toggleTheme = useCallback(() => {

@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Bot, Loader2, Send, ShieldCheck, Sparkles, Trash2, User } from 'lucide-react';
 import { useBreatheWise } from '@/components/BreatheWiseProvider';
+import { apiFetch } from '@/lib/client-api';
 import type { ChatMessage } from '@/types/breathewise';
 
 const SUGGESTED_QUESTIONS = [
@@ -20,11 +21,12 @@ export default function AssistantPage() {
   const [sending, setSending] = useState(false);
   const [providerLabel, setProviderLabel] = useState<string>('Grounded Environmental AI');
   const endRef = useRef<HTMLDivElement>(null);
+  const localIdRef = useRef(0);
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/chat', { cache: 'no-store' });
+        const res = await apiFetch('/api/chat', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           setMessages(data.history ?? []);
@@ -44,7 +46,7 @@ export default function AssistantPage() {
     if (!trimmed || sending) return;
 
     const optimisticUser: ChatMessage = {
-      id: `temp-${Date.now()}`,
+      id: `local-${++localIdRef.current}`,
       role: 'user',
       content: trimmed,
       timestamp: new Date().toISOString(),
@@ -58,7 +60,7 @@ export default function AssistantPage() {
     setSending(true);
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await apiFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -68,8 +70,8 @@ export default function AssistantPage() {
           forceDemoMode: settings.forceDemoMode,
         }),
       });
-      if (!res.ok) throw new Error('Chat request failed');
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? 'Chat request failed');
       setMessages((prev) => [
         ...prev.filter((m) => m.id !== optimisticUser.id),
         data.userMessage,
@@ -78,14 +80,15 @@ export default function AssistantPage() {
       if (data.provider === 'gemini') setProviderLabel('Google Gemini + Live Context');
       else if (data.provider === 'openai') setProviderLabel('OpenAI + Live Context');
       else setProviderLabel('Grounded Environmental AI Engine');
-    } catch {
+    } catch (err) {
       setMessages((prev) => [
-        ...prev,
+        ...prev.filter((m) => m.id !== `local-${localIdRef.current}`),
         {
-          id: `err-${Date.now()}`,
+          id: `err-${++localIdRef.current}`,
           role: 'assistant',
-          content:
-            'Sorry, I encountered a temporary error reaching the AI service. Please try again or check your active city settings.',
+          content: err instanceof Error && err.message.includes('Too many')
+            ? 'Too many requests right now. Please wait a minute and try again.'
+            : 'Sorry, I encountered a temporary error reaching the AI service. Please try again or check your active city settings.',
           timestamp: new Date().toISOString(),
         },
       ]);
@@ -95,8 +98,12 @@ export default function AssistantPage() {
   }
 
   async function handleClear() {
-    await fetch('/api/chat', { method: 'DELETE' });
-    setMessages([]);
+    try {
+      const res = await apiFetch('/api/chat', { method: 'DELETE' });
+      if (res.ok) setMessages([]);
+    } catch {
+      // Keep history visible if the server is unreachable.
+    }
   }
 
   return (
@@ -201,6 +208,16 @@ export default function AssistantPage() {
                     {typeof m.aqiContext === 'number' && <span>· {m.aqiContext} AQI</span>}
                     {m.dataMode && <span>· {m.dataMode.toUpperCase()}</span>}
                   </div>
+                  {m.role === 'assistant' && m.sources && m.sources.length > 0 && (
+                    <div className="mt-2 border-t border-slate-200 pt-2 text-[10px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                      <strong>Sources:</strong> {m.sources.join(' · ')}
+                      {m.uncertaintyNote && (
+                        <span className="mt-1 block">
+                          <strong>Uncertainty:</strong> {m.uncertaintyNote}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {m.role === 'user' && (
@@ -236,6 +253,7 @@ export default function AssistantPage() {
           <div className="flex items-center gap-2">
             <input
               type="text"
+              maxLength={1000}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={`Ask BreatheWise AI about ${activeCity.name} air quality...`}

@@ -4,16 +4,43 @@ import React, { useState } from 'react';
 import { Bell, Check, FlaskConical, Lock, Moon, Settings, Sun } from 'lucide-react';
 import { useBreatheWise } from '@/components/BreatheWiseProvider';
 import { FEATURED_CITIES } from '@/lib/demo-data';
-import type { BudgetTier, SensitivityGroup } from '@/types/breathewise';
+import type {
+  AlertPreferences,
+  BudgetTier,
+  SensitivityGroup,
+} from '@/types/breathewise';
 
 export default function SettingsPage() {
   const { settings, updateSettings, toggleTheme } = useBreatheWise();
-  const [savedToast, setSavedToast] = useState(false);
+  const [savedToast, setSavedToast] = useState<string | null>(null);
+  const [draftAlerts, setDraftAlerts] = useState<AlertPreferences | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
 
-  async function savePatch(patch: Parameters<typeof updateSettings>[0]) {
-    await updateSettings(patch);
-    setSavedToast(true);
-    setTimeout(() => setSavedToast(false), 2500);
+  async function savePatch(
+    patch: Parameters<typeof updateSettings>[0],
+    message = 'Settings Saved'
+  ) {
+    const ok = await updateSettings(patch);
+    setSavedToast(ok ? message : 'Could not save settings. Please try again.');
+    setTimeout(() => setSavedToast(null), 3000);
+  }
+
+  const alerts = draftAlerts ?? settings.alerts;
+  const isKnownCity = FEATURED_CITIES.some(
+    (c) => c.name === settings.defaultCity.name && c.lat === settings.defaultCity.lat
+  );
+
+  function setAlertValue(key: keyof AlertPreferences, value: number | boolean) {
+    setDraftAlerts((prev) => ({
+      ...(prev ?? settings.alerts),
+      [key]: value,
+    }));
+  }
+
+  function commitAlerts() {
+    if (!draftAlerts) return;
+    void savePatch({ alerts: draftAlerts }, 'Alert preferences saved');
+    setDraftAlerts(null);
   }
 
   return (
@@ -32,7 +59,7 @@ export default function SettingsPage() {
         {savedToast && (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300">
             <Check className="h-3.5 w-3.5" />
-            Settings Saved
+            {savedToast}
           </span>
         )}
       </div>
@@ -42,6 +69,30 @@ export default function SettingsPage() {
         <h2 className="text-base font-bold text-slate-900 dark:text-white">
           Profile &amp; Environmental Preferences
         </h2>
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+            Display Name (stored only in this browser session)
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              maxLength={48}
+              value={displayName ?? settings.displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const name = (displayName ?? settings.displayName).trim();
+                if (name) void savePatch({ displayName: name });
+              }}
+              className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+            >
+              Save
+            </button>
+          </div>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
@@ -91,6 +142,11 @@ export default function SettingsPage() {
               }}
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             >
+              {!isKnownCity && (
+                <option value={settings.defaultCity.name}>
+                  {settings.defaultCity.name}, {settings.defaultCity.country || 'Selected area'}
+                </option>
+              )}
               {FEATURED_CITIES.map((c) => (
                 <option key={c.name} value={c.name}>
                   {c.name}, {c.country}
@@ -181,84 +237,64 @@ export default function SettingsPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-              Elevated AQI Advisory Threshold ({settings.alerts.highAqiThreshold} AQI)
+              Elevated AQI Advisory Threshold ({alerts.highAqiThreshold} AQI)
             </label>
             <input
               type="range"
               min={50}
               max={180}
-              value={settings.alerts.highAqiThreshold}
-              onChange={(e) =>
-                void savePatch({
-                  alerts: {
-                    ...settings.alerts,
-                    highAqiThreshold: Number(e.target.value),
-                  },
-                })
-              }
+              value={alerts.highAqiThreshold}
+              onChange={(e) => setAlertValue('highAqiThreshold', Number(e.target.value))}
+              onPointerUp={commitAlerts}
+              onKeyUp={commitAlerts}
               className="w-full accent-emerald-600"
             />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-              Severe Pollution Alert Threshold ({settings.alerts.severeAqiThreshold} AQI)
+              Severe Pollution Alert Threshold ({alerts.severeAqiThreshold} AQI)
             </label>
             <input
               type="range"
               min={150}
               max={300}
-              value={settings.alerts.severeAqiThreshold}
-              onChange={(e) =>
-                void savePatch({
-                  alerts: {
-                    ...settings.alerts,
-                    severeAqiThreshold: Number(e.target.value),
-                  },
-                })
-              }
+              value={alerts.severeAqiThreshold}
+              onChange={(e) => setAlertValue('severeAqiThreshold', Number(e.target.value))}
+              onPointerUp={commitAlerts}
+              onKeyUp={commitAlerts}
               className="w-full accent-rose-600"
             />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-              Unusual Change Delta ({settings.alerts.spikeDeltaThreshold} AQI shift)
+              Unusual Change Delta ({alerts.spikeDeltaThreshold} AQI shift)
             </label>
             <input
               type="range"
               min={15}
               max={80}
-              value={settings.alerts.spikeDeltaThreshold}
-              onChange={(e) =>
-                void savePatch({
-                  alerts: {
-                    ...settings.alerts,
-                    spikeDeltaThreshold: Number(e.target.value),
-                  },
-                })
-              }
+              value={alerts.spikeDeltaThreshold}
+              onChange={(e) => setAlertValue('spikeDeltaThreshold', Number(e.target.value))}
+              onPointerUp={commitAlerts}
+              onKeyUp={commitAlerts}
               className="w-full accent-amber-500"
             />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-              Favorable Ventilation Window Max ({settings.alerts.favorableVentilationMaxAqi} AQI)
+              Favorable Ventilation Window Max ({alerts.favorableVentilationMaxAqi} AQI)
             </label>
             <input
               type="range"
               min={30}
               max={100}
-              value={settings.alerts.favorableVentilationMaxAqi}
-              onChange={(e) =>
-                void savePatch({
-                  alerts: {
-                    ...settings.alerts,
-                    favorableVentilationMaxAqi: Number(e.target.value),
-                  },
-                })
-              }
+              value={alerts.favorableVentilationMaxAqi}
+              onChange={(e) => setAlertValue('favorableVentilationMaxAqi', Number(e.target.value))}
+              onPointerUp={commitAlerts}
+              onKeyUp={commitAlerts}
               className="w-full accent-sky-600"
             />
           </div>
@@ -303,7 +339,7 @@ export default function SettingsPage() {
       <div className="flex items-start gap-2.5 rounded-2xl border border-sky-200 bg-sky-50/70 p-4 text-xs text-sky-950 dark:border-sky-800/50 dark:bg-sky-950/30 dark:text-sky-100">
         <Lock className="h-4 w-4 shrink-0 text-sky-600 mt-0.5" />
         <div>
-          <strong>Privacy Guarantee:</strong> Browser geolocation is strictly optional and only queried on demand to fetch local environmental data. BreatheWise AI never publishes or stores exact home addresses.
+          <strong>Privacy:</strong> Preferences and chat history are scoped to this browser session and are not shared between visitors. Browser geolocation is optional, used only on demand to fetch environmental data, and is never published. Community reports accept neighborhood-level names only; coordinate-like strings are redacted.
         </div>
       </div>
     </div>

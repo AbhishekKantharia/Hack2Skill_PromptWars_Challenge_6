@@ -12,6 +12,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useBreatheWise } from '@/components/BreatheWiseProvider';
+import { apiFetch } from '@/lib/client-api';
 import type { CommunityChallenge, CommunityObservation } from '@/types/breathewise';
 
 const CATEGORY_LABELS: Record<CommunityObservation['category'], string> = {
@@ -33,24 +34,40 @@ export default function CommunityPage() {
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [upvotedIds, setUpvotedIds] = useState<string[]>([]);
 
   useEffect(() => {
+    let active = true;
     (async () => {
-      const res = await fetch('/api/community', { cache: 'no-store' });
-      if (res.ok) {
+      try {
+        const res = await apiFetch('/api/community', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
+        if (!active) return;
         setObservations(data.observations ?? []);
         setChallenges(data.challenges ?? []);
+        setUpvotedIds(data.upvotedObservationIds ?? []);
+      } catch {
+        if (active) setLoadError('Could not load community data. Please retry the page.');
       }
     })();
+    return () => {
+      active = false;
+    };
   }, []);
+
+  function flash(message: string) {
+    setStatusMsg(message);
+    setTimeout(() => setStatusMsg(null), 4000);
+  }
 
   async function handleSubmitObservation(e: React.FormEvent) {
     e.preventDefault();
     if (!neighborhood.trim() || !description.trim()) return;
     setSubmitting(true);
     try {
-      const res = await fetch('/api/community', {
+      const res = await apiFetch('/api/community', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -62,28 +79,39 @@ export default function CommunityPage() {
           description,
         }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setObservations((prev) => [data.observation, ...prev]);
-        setNeighborhood('');
-        setDescription('');
-        setStatusMsg('Observation published as a neighborhood-level user report.');
-        setTimeout(() => setStatusMsg(null), 4000);
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        flash(data?.error ?? 'Could not publish your report.');
+        return;
       }
+      setObservations((prev) => [data.observation, ...prev]);
+      setNeighborhood('');
+      setDescription('');
+      flash('Observation published as a neighborhood-level user report.');
+    } catch {
+      flash('Network error. Your report was not published.');
     } finally {
       setSubmitting(false);
     }
   }
 
   async function handleUpvote(id: string) {
-    const res = await fetch('/api/community', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'upvote_observation', id }),
-    });
-    if (res.ok) {
-      const data = await res.json();
+    try {
+      const res = await apiFetch('/api/community', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'upvote_observation', id }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        flash(data?.error ?? 'Could not record your confirmation.');
+        return;
+      }
       setObservations(data.observations);
+      if (data.alreadyVoted) flash('You already confirmed this report.');
+      else setUpvotedIds((prev) => [...prev, id]);
+    } catch {
+      flash('Network error. Please try again.');
     }
   }
 
@@ -91,14 +119,21 @@ export default function CommunityPage() {
     challengeId: string,
     action: 'join_challenge' | 'log_challenge_action'
   ) {
-    const res = await fetch('/api/community', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, challengeId }),
-    });
-    if (res.ok) {
-      const data = await res.json();
+    try {
+      const res = await apiFetch('/api/community', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, challengeId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        flash(data?.error ?? 'Could not update challenge progress.');
+        return;
+      }
       setChallenges(data.challenges);
+      if (data.alreadyJoined && action === 'join_challenge') flash('You already joined this challenge.');
+    } catch {
+      flash('Network error. Please try again.');
     }
   }
 
@@ -119,7 +154,7 @@ export default function CommunityPage() {
         <div className="flex items-start gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-xs text-emerald-950 dark:border-emerald-800/50 dark:bg-emerald-950/30 dark:text-emerald-100">
           <Radio className="h-4 w-4 shrink-0 text-emerald-600 mt-0.5" />
           <div>
-            <strong>Official vs. User-Submitted Distinction:</strong> Current {activeCity.name} telemetry ({airQuality?.aqi ?? '--'} US AQI) comes from <em>{airQuality?.dataMode === 'demo' ? 'Demo Reference Data' : 'Open-Meteo CAMS / Official Stations'}</em>. Citizen reports below are labeled <strong>User Observation</strong> and reflect local perceptions, not calibrated instruments.
+            <strong>Official vs. User-Submitted Distinction:</strong> Current {activeCity.name} telemetry ({airQuality?.aqi ?? '--'} US AQI) comes from <em>{airQuality?.dataMode === 'demo' ? 'clearly labeled Demo Reference Data' : 'the Open-Meteo CAMS atmospheric model grid'}</em>. Certified ground-station readings appear only when a WAQI station is available. Citizen reports below are labeled <strong>User-Submitted</strong> and reflect local perceptions, not calibrated instruments.
           </div>
         </div>
 
@@ -130,6 +165,12 @@ export default function CommunityPage() {
           </div>
         </div>
       </div>
+
+      {loadError && (
+        <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs font-semibold text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200">
+          {loadError}
+        </div>
+      )}
 
       {/* Neighborhood Challenges */}
       <section className="space-y-3">
@@ -335,10 +376,11 @@ export default function CommunityPage() {
                 <button
                   type="button"
                   onClick={() => void handleUpvote(obs.id)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-700 dark:border-slate-700 dark:text-slate-200"
+                  disabled={upvotedIds.includes(obs.id)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200"
                 >
                   <ThumbsUp className="h-3.5 w-3.5" />
-                  Confirm ({obs.upvotes})
+                  {upvotedIds.includes(obs.id) ? 'Confirmed' : 'Confirm'} ({obs.upvotes})
                 </button>
               </div>
             </div>

@@ -29,6 +29,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${jakarta.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(localStorage.getItem('breathewise-theme')==='dark'||(!localStorage.getItem('breathewise-theme')&&matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}catch(e){}",
+          }}
+        />
+      </head>
       <body className="min-h-screen antialiased selection:bg-emerald-500/20 selection:text-emerald-800 dark:selection:text-emerald-200">
         <BreatheWiseProvider>
           <AppShell>{children}</AppShell>

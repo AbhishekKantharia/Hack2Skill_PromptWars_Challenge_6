@@ -13,6 +13,53 @@ interface Props {
   metric: 'aqi' | 'pm25' | 'pm10' | 'no2' | 'o3';
 }
 
+const POLLUTANT_GUIDELINES: Record<Exclude<Props['metric'], 'aqi'>, number> = {
+  pm25: 15,
+  pm10: 45,
+  no2: 25,
+  o3: 100,
+};
+
+function markerColor(st: AirQualityStation, metric: Props['metric']): string {
+  if (metric === 'aqi') return getAqiMeta(st.aqi).colorHex;
+  const value = st[metric];
+  if (value === null) return '#64748b';
+  const ratio = value / POLLUTANT_GUIDELINES[metric];
+  if (ratio <= 0.5) return '#10b981';
+  if (ratio <= 1) return '#f59e0b';
+  if (ratio <= 2) return '#f97316';
+  return '#ef4444';
+}
+
+function buildPopup(st: AirQualityStation, metric: Props['metric']): HTMLElement {
+  const root = document.createElement('div');
+  root.style.minWidth = '200px';
+  root.style.fontFamily = 'sans-serif';
+
+  const title = document.createElement('div');
+  title.style.cssText = 'font-weight:700;font-size:13px;margin-bottom:4px';
+  title.textContent = st.name;
+  root.appendChild(title);
+
+  const value = document.createElement('div');
+  value.style.cssText = 'font-size:12px;margin-bottom:6px';
+  const reading = metric === 'aqi' ? `${st.aqi} US AQI` : `${st[metric] ?? 'N/A'} µg/m³`;
+  value.textContent = `${metric.toUpperCase()}: ${reading}`;
+  root.appendChild(value);
+
+  const detail = document.createElement('div');
+  detail.style.cssText = 'font-size:11px;color:#475569';
+  detail.textContent = `PM2.5: ${st.pm25 ?? 'N/A'} µg/m³ · PM10: ${st.pm10 ?? 'N/A'} µg/m³ · NO₂: ${st.no2 ?? 'N/A'} µg/m³ · O₃: ${st.o3 ?? 'N/A'} µg/m³`;
+  root.appendChild(detail);
+
+  const source = document.createElement('div');
+  source.style.cssText = `margin-top:6px;font-size:10px;font-weight:600;color:${st.sourceType === 'demo' ? '#b45309' : '#047857'}`;
+  source.textContent = `${st.sourceLabel} · ${new Date(st.updatedAt).toLocaleString()}`;
+  root.appendChild(source);
+
+  return root;
+}
+
 export default function AirMapLeaflet({ centerLat, centerLon, stations, metric }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -57,36 +104,14 @@ export default function AirMapLeaflet({ centerLat, centerLon, stations, metric }
     group.clearLayers();
 
     stations.forEach((st) => {
-      const meta = getAqiMeta(st.aqi);
-      const val = st[metric];
-      const unit = metric === 'aqi' ? 'US AQI' : 'µg/m³';
-
       const marker = L.circleMarker([st.lat, st.lon], {
         radius: 14,
         color: '#ffffff',
         weight: 2,
-        fillColor: meta.colorHex,
+        fillColor: markerColor(st, metric),
         fillOpacity: 0.9,
       });
-
-      marker.bindPopup(`
-        <div style="min-width: 190px; font-family: sans-serif;">
-          <div style="font-weight: 700; font-size: 13px; margin-bottom: 4px;">${st.name}</div>
-          <div style="font-size: 12px; margin-bottom: 6px;">
-            <strong>${metric.toUpperCase()}:</strong> ${val} ${unit} (${meta.category})
-          </div>
-          <div style="font-size: 11px; color: #475569;">
-            PM2.5: ${st.pm25} µg/m³ · PM10: ${st.pm10} µg/m³<br/>
-            NO₂: ${st.no2} µg/m³ · O₃: ${st.o3} µg/m³
-          </div>
-          <div style="margin-top: 6px; font-size: 10px; font-weight: 600; color: ${
-            st.sourceType === 'demo' ? '#b45309' : '#047857'
-          };">
-            ${st.sourceLabel}
-          </div>
-        </div>
-      `);
-
+      marker.bindPopup(buildPopup(st, metric));
       marker.addTo(group);
     });
   }, [stations, metric]);

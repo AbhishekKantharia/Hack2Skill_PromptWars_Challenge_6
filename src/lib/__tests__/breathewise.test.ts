@@ -12,7 +12,15 @@ import {
 import { buildDemoAirQualityPayload, DEFAULT_USER_SETTINGS, FEATURED_CITIES } from '@/lib/demo-data';
 import { generateCleanerDayRoutine } from '@/lib/routine-engine';
 import { generateAssistantReply } from '@/lib/ai-assistant';
-import { addCommunityObservation } from '@/lib/store';
+import {
+  addCommunityObservation,
+  getChatHistory,
+  getSettings,
+  upvoteObservation,
+  updateSettings,
+} from '@/lib/store';
+import { parseFrequencies, parseSettingsPatch } from '@/lib/validation';
+import { SUSTAINABILITY_ACTIONS } from '@/lib/calculations';
 
 describe('AQI and Alert Engine', () => {
   it('computes accurate US EPA AQI from PM2.5 breakpoints', () => {
@@ -122,5 +130,62 @@ describe('My Cleaner Day Routine & Grounded AI Safety', () => {
     });
     expect(obs.neighborhood).not.toContain('28.61395');
     expect(obs.verificationType).toBe('user_submitted');
+  });
+
+  it('only offers future forecast hours as clean-up windows', () => {
+    const payload = buildDemoAirQualityPayload(FEATURED_CITIES[0]);
+    payload.hourly = payload.hourly.map((point, i) => ({
+      ...point,
+      label: i < 8 ? `0${i + 1}:00` : `${i - 7}:00`,
+      isForecast: i >= 8,
+      aqi: i === 0 ? 5 : point.aqi,
+    }));
+    const routine = generateCleanerDayRoutine(payload, {
+      sensitivityGroup: 'general',
+      budgetTier: 'free_first',
+      plannedActivities: ['outdoor_exercise'],
+      commuteMode: 'transit',
+    });
+    expect(routine.bestOutdoorWindow).not.toContain('5 AQI');
+  });
+});
+
+describe('Privacy, validation, and transparency', () => {
+  it('isolates settings and chat history by browser session', async () => {
+    await updateSettings({ displayName: 'Session A' }, 'session-a');
+    await updateSettings({ displayName: 'Session B' }, 'session-b');
+    expect((await getSettings('session-a')).displayName).toBe('Session A');
+    expect((await getSettings('session-b')).displayName).toBe('Session B');
+    expect((await getChatHistory('session-b')).length).toBe(0);
+  });
+
+  it('only records one confirmation per session', async () => {
+    const first = await upvoteObservation('obs-1', 'session-a');
+    const second = await upvoteObservation('obs-1', 'session-a');
+    expect(first.alreadyVoted).toBe(false);
+    expect(second.alreadyVoted).toBe(true);
+    expect(second.observations.find((o) => o.id === 'obs-1')?.upvotes).toBe(15);
+  });
+
+  it('rejects invalid settings and clamps calculator frequencies', () => {
+    expect(
+      parseSettingsPatch({ theme: 'neon', highAqiThreshold: -100, forceDemoMode: 'yes' })
+    ).toBeNull();
+    const frequencies = parseFrequencies({
+      public_transit: 999,
+      unknown_action: 42,
+      save_electricity: 2,
+    });
+    expect(frequencies?.public_transit).toBe(
+      SUSTAINABILITY_ACTIONS.find((a) => a.id === 'public_transit')?.maxFrequency
+    );
+    expect(frequencies).not.toHaveProperty('unknown_action');
+    expect(frequencies?.save_electricity).toBe(2);
+  });
+
+  it('labels the simulator proxy as an upper bound, not an AQI forecast', () => {
+    const sim = evaluateSimulatorScenario('cleaner_cooking', 30);
+    expect(sim.localSectorEmissionDropPct).toBe(30);
+    expect(sim.proxyNote).toContain('not a measured emission inventory change');
   });
 });

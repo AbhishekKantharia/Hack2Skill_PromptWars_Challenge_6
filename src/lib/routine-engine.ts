@@ -2,16 +2,20 @@ import type {
   AirQualityPayload,
   BudgetTier,
   DailyRoutineResponse,
+  HourlyAirPoint,
   RoutineItem,
   SensitivityGroup,
 } from '@/types/breathewise';
+import { SUSTAINABILITY_ACTIONS } from '@/lib/calculations';
 
 export interface RoutinePreferencesInput {
   sensitivityGroup: SensitivityGroup;
   budgetTier: BudgetTier;
-  plannedActivities: string[]; // e.g., ['outdoor_exercise', 'commute', 'cooking']
+  plannedActivities: string[];
   commuteMode: 'car' | 'transit' | 'walk_bike' | 'remote';
 }
+
+type DayPart = 'Morning' | 'Afternoon' | 'Evening';
 
 function getGroupThresholdOffset(group: SensitivityGroup): number {
   switch (group) {
@@ -26,179 +30,237 @@ function getGroupThresholdOffset(group: SensitivityGroup): number {
   }
 }
 
+function hourFromLabel(label: string): number | null {
+  const match = /^(\d{1,2}):/.exec(label);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  return Number.isFinite(hour) && hour >= 0 && hour <= 23 ? hour : null;
+}
+
+function bucketForHour(hour: number): DayPart | null {
+  if (hour >= 6 && hour < 12) return 'Morning';
+  if (hour >= 12 && hour < 18) return 'Afternoon';
+  if (hour >= 18) return 'Evening';
+  return null;
+}
+
+function averageAqi(points: HourlyAirPoint[], fallback: number): number {
+  return points.length
+    ? Math.round(points.reduce((sum, point) => sum + point.aqi, 0) / points.length)
+    : fallback;
+}
+
+function windowLabel(points: HourlyAirPoint[], fallback: string): string {
+  if (!points.length) return fallback;
+  const sorted = [...points].sort((a, b) => a.label.localeCompare(b.label));
+  return `${sorted[0].label} – ${sorted[sorted.length - 1].label}`;
+}
+
+function actionFactor(id: string): number {
+  return SUSTAINABILITY_ACTIONS.find((action) => action.id === id)?.co2KgPerUnit ?? 0;
+}
+
 export function generateCleanerDayRoutine(
   aq: AirQualityPayload,
   prefs: RoutinePreferencesInput
 ): DailyRoutineResponse {
-  const forecasts = aq.hourly;
   const offset = getGroupThresholdOffset(prefs.sensitivityGroup);
-  const adjustedAqi = Math.max(0, aq.aqi - offset);
+  const sensitiveMargin = Math.abs(offset);
+  const highThreshold = Math.max(50, 100 + offset);
+  const effectiveAqi = Math.max(0, aq.aqi + sensitiveMargin);
 
-  const morningHours = forecasts.slice(0, 8);
-  const afternoonHours = forecasts.slice(8, 16);
-  const eveningHours = forecasts.slice(16, 24);
-
-  const avg = (arr: typeof forecasts, fallback: number) =>
-    arr.length > 0
-      ? Math.round(arr.reduce((s, x) => s + x.aqi, 0) / arr.length)
-      : fallback;
-
-  const morningAqi = avg(morningHours, aq.aqi);
-  const afternoonAqi = avg(afternoonHours, Math.max(25, Math.round(aq.aqi * 0.85)));
-  const eveningAqi = avg(eveningHours, Math.round(aq.aqi * 1.05));
-
-  const cleanestHour = forecasts.reduce(
-    (best, curr) => (curr.aqi < best.aqi ? curr : best),
-    forecasts[0] ?? { label: '14:00', aqi: aq.aqi }
-  );
-
-  const isMorningHigh = morningAqi + Math.abs(offset) > 100;
-  const isAfternoonClean = afternoonAqi <= 85;
-  const isEveningHigh = eveningAqi + Math.abs(offset) > 100;
-
-  const items: RoutineItem[] = [];
-
-  // MORNING
-  if (isMorningHigh) {
-    items.push({
-      id: 'morning-exercise',
-      timeOfDay: 'Morning',
-      timeWindow: '06:30 – 09:00',
-      action:
-        prefs.plannedActivities.includes('outdoor_exercise')
-          ? 'Shift vigorous morning cardio indoors (home mobility, stationary bike, or ventilated gym)'
-          : 'Review morning AQI before outdoor errands and keep exterior windows latched during morning peak',
-      explanation: `Morning concentrations in ${aq.location.name} sit around ~${morningAqi} US AQI (dominated by ${aq.dominantPollutant}). Cooler early-morning air often traps exhaust close to ground level before sunlight disperses it.`,
-      expectedBenefit:
-        'Avoids deep lung inhalation during elevated morning particulate/NO2 concentrations when breathing rate increases during exercise.',
-      estimatedCost: prefs.budgetTier === 'free_first' ? '$0 (Free)' : '$0 at home (or existing gym)',
-      environmentalImpact: 'Personal exposure reduction; zero additional energy if bodyweight/home routine.',
-      caveat:
-        'Indoor air is only cleaner than outdoors if indoor sources (incense, smoking, unvented cooking) are absent and outdoor dust infiltration is limited.',
-      forecastAqi: morningAqi,
-    });
-  } else {
-    items.push({
-      id: 'morning-exercise',
-      timeOfDay: 'Morning',
-      timeWindow: '06:30 – 09:00',
-      action: 'Enjoy outdoor walking or light exercise along tree-lined streets away from main roads',
-      explanation: `Morning air is relatively favorable (~${morningAqi} US AQI). Selecting side streets 50–100m away from heavy traffic corridors lowers roadside NO2 and ultrafine particle exposure.`,
-      expectedBenefit: 'Supports cardiovascular fitness while keeping exposure near neighborhood background levels.',
-      estimatedCost: '$0 (Free)',
-      environmentalImpact: 'Replaces motorized morning trips if combined with walking/cycling errands.',
-      caveat: 'Roadside micro-environments can spike briefly near idling buses or construction even when city-wide AQI looks low.',
-      forecastAqi: morningAqi,
-    });
+  const future = aq.hourly.filter((point) => point.isForecast);
+  const buckets: Record<DayPart, HourlyAirPoint[]> = {
+    Morning: [],
+    Afternoon: [],
+    Evening: [],
+  };
+  for (const point of aq.hourly) {
+    const hour = hourFromLabel(point.label);
+    if (hour === null) continue;
+    const bucket = bucketForHour(hour);
+    if (bucket) buckets[bucket].push(point);
+  }
+  for (const key of Object.keys(buckets) as DayPart[]) {
+    if (buckets[key].length === 0) buckets[key] = future.slice(0, 4);
   }
 
-  // AFTERNOON
+  const morningAqi = averageAqi(buckets.Morning, aq.aqi);
+  const afternoonAqi = averageAqi(buckets.Afternoon, aq.aqi);
+  const eveningAqi = averageAqi(buckets.Evening, aq.aqi);
+
+  const cleanestHour = future.reduce<HourlyAirPoint | null>(
+    (best, point) => (!best || point.aqi < best.aqi ? point : best),
+    null
+  );
+
+  const isMorningHigh = morningAqi >= highThreshold;
+  const isEveningHigh = eveningAqi >= highThreshold;
+  const isAfternoonClean = afternoonAqi <= highThreshold - 15;
+  const items: RoutineItem[] = [];
+
+  items.push({
+    id: 'morning-exercise',
+    timeOfDay: 'Morning',
+    timeWindow: windowLabel(buckets.Morning, '06:00 – 11:00'),
+    action: isMorningHigh
+      ? prefs.plannedActivities.includes('outdoor_exercise')
+        ? 'Shift vigorous morning cardio indoors (home mobility, stationary bike, or ventilated gym)'
+        : 'Review morning AQI before outdoor errands and keep exterior windows latched during the morning peak'
+      : 'Consider outdoor walking or light exercise on side streets away from main roads',
+    explanation: `Morning concentrations in ${aq.location.name} average around ~${morningAqi} US AQI (dominant pollutant: ${aq.dominantPollutant}). Your ${prefs.sensitivityGroup.replace('_', ' ')} profile uses a ${highThreshold} AQI planning threshold instead of 100.`,
+    expectedBenefit:
+      'Reduces inhalation of fine particles and NO₂ during exercise, when breathing rate and deposited dose increase.',
+    estimatedCost: isMorningHigh
+      ? prefs.budgetTier === 'free_first'
+        ? '$0 (bodyweight or indoors at home)'
+        : '$0 at home (existing gym fees if applicable)'
+      : '$0 (Free)',
+    environmentalImpact:
+      'Walking or cycling short errands can avoid tailpipe emissions; expected climate benefit depends on the trip actually replaced.',
+    caveat:
+      'Indoor air is only cleaner if indoor combustion sources are absent; roadside and construction micro-environments can differ sharply from the city grid value.',
+    forecastAqi: morningAqi,
+  });
+
+  const transitFactor = actionFactor('public_transit');
+  const shortTripFactor = actionFactor('skip_short_car_trips');
+
   if (prefs.commuteMode === 'car') {
     items.push({
       id: 'afternoon-commute',
       timeOfDay: 'Afternoon',
-      timeWindow: '12:00 – 16:30',
+      timeWindow: windowLabel(buckets.Afternoon, '12:00 – 17:00'),
       action:
-        'Combine errands into a single trip, switch off engine instead of idling (>60s), and use cabin recirculation only in heavy tunnel/jam traffic',
-      explanation: `Afternoon AQI averages ~${afternoonAqi}. While atmospheric mixing often improves dispersion midday, dense stop-and-go traffic creates localized NO2 and CO plumes inside vehicle lanes.`,
-      expectedBenefit: 'Lowers both personal in-cabin pollution spikes and tailpipe emissions near schools and shops.',
-      estimatedCost: 'Saves ~$1.20–$2.50 in avoided fuel per combined errand',
-      environmentalImpact: '~0.8–1.5 kg CO2 avoided per replaced short cold-start car trip plus lower local NOx/PM.',
-      caveat: 'Keep cabin recirculation off on long highway drives with multiple passengers so CO2 from exhaled breath does not build up and cause drowsiness.',
+        'Combine errands into one trip, avoid idling for more than 60 seconds, and use fresh-air cabin mode except in heavy traffic tunnels',
+      explanation: `Afternoon AQI averages ~${afternoonAqi}. Midday mixing can improve dispersion, but stop-and-go traffic creates localized NO₂ and CO plumes near busy lanes.`,
+      expectedBenefit:
+        'Lowers in-cabin exposure spikes and avoids avoidable tailpipe emissions close to schools and shops.',
+      estimatedCost: 'Saves the fuel cost of each avoided short trip (varies by vehicle and distance)',
+      environmentalImpact: `Replacing one short car errand avoids about ${shortTripFactor} kg CO₂e using the calculator's documented EPA cold-start factor; local NOx/PM changes are not quantified here.`,
+      caveat:
+        'Keeping cabin recirculation on for long drives with several passengers can allow exhaled CO₂ to build up; switch back to fresh air on open roads.',
       forecastAqi: afternoonAqi,
     });
-  } else if (prefs.commuteMode === 'transit' || prefs.commuteMode === 'walk_bike') {
+  } else if (prefs.commuteMode === 'remote') {
     items.push({
-      id: 'afternoon-commute',
+      id: 'afternoon-remote',
       timeOfDay: 'Afternoon',
-      timeWindow: '12:00 – 16:30',
-      action:
-        adjustedAqi > 130
-          ? 'Use public transit over strenuous cycling and wear a well-fitted N95/FFP2 respirator along busy roads'
-          : 'Travel via transit or lower-traffic greenway routes during the midday dispersion window',
-      explanation: `Midday hours around ${cleanestHour.label} (~${cleanestHour.aqi} AQI) are projected as your cleanest outdoor travel window today.`,
-      expectedBenefit: 'Balances sustainable low-emission mobility with lower cumulative particulate inhalation.',
-      estimatedCost:
-        prefs.budgetTier === 'free_first'
-          ? '$0 walking / standard transit fare'
-          : '$1–$3 per reusable N95/FFP2 respirator (when AQI > 130)',
-      environmentalImpact: '~1.55 kg CO2 avoided per 10 km round-trip transit shift vs. solo driving.',
-      caveat: 'No mask eliminates 100% of gaseous pollutants like NO2 or ozone; fit and seal around the nose bridge matter most for PM2.5.',
+      timeWindow: windowLabel(buckets.Afternoon, '12:00 – 17:00'),
+      action: 'Keep the remote-work day; step outside briefly only during the cleanest remaining forecast hour',
+      explanation: `Forecast afternoon AQI is ~${afternoonAqi}. Avoiding a commute removes both exposure time and vehicle emissions.`,
+      expectedBenefit: 'Avoids peak-hour roadside exposure and eliminates one commute trip.',
+      estimatedCost: '$0 (Free)',
+      environmentalImpact: 'Avoided emissions depend on the commute distance and mode that would otherwise be used.',
+      caveat: 'Short outdoor breaks still matter for comfort; recheck nearby conditions before opening windows.',
       forecastAqi: afternoonAqi,
     });
   } else {
     items.push({
-      id: 'afternoon-home',
+      id: 'afternoon-commute',
       timeOfDay: 'Afternoon',
-      timeWindow: `${cleanestHour.label} (Cleanest Window)`,
-      action: isAfternoonClean
-        ? 'Open opposite windows for 15–20 minutes of cross-ventilation during midday outdoor dip'
-        : 'Skip wide-open windows; run kitchen exhaust during lunch prep and damp-dust high-touch surfaces',
-      explanation: `Forecast indicates outdoor air reaches ~${cleanestHour.aqi} AQI around ${cleanestHour.label}. Brief cross-ventilation flushes indoor CO2 and cooking VOCs when outdoor air is cleaner than indoor air.`,
-      expectedBenefit: 'Improves indoor alertness and dilutes accumulated indoor pollutants without costly equipment.',
-      estimatedCost: '$0 (Free)',
-      environmentalImpact: 'Reduces reliance on mechanical AC/heating when outdoor temperatures are mild.',
-      caveat: 'Do not assume outdoor air is always cleaner than indoors—if outdoor AQI exceeds 100 or visible smoke is present nearby, keep windows closed.',
-      forecastAqi: cleanestHour.aqi,
+      timeWindow: windowLabel(buckets.Afternoon, '12:00 – 17:00'),
+      action:
+        effectiveAqi > 130 && prefs.commuteMode === 'walk_bike'
+          ? 'Prefer public transit over strenuous cycling and use a well-fitted N95/FFP2 respirator on busy roads'
+          : 'Travel by transit or a lower-traffic greenway route rather than a busy arterial',
+      explanation: `Midday hours average ~${afternoonAqi} US AQI${cleanestHour ? `; the cleanest upcoming hour is ${cleanestHour.label} (~${cleanestHour.aqi} AQI)` : ''}.`,
+      expectedBenefit:
+        'Balances lower-emission mobility with reduced breathing dose compared with vigorous cycling beside heavy traffic.',
+      estimatedCost:
+        prefs.budgetTier === 'free_first'
+          ? '$0 walking / standard transit fare'
+          : prefs.budgetTier === 'balanced'
+            ? 'Standard transit fare; optional low-cost respirator when AQI is high'
+            : 'Transit fare plus a well-fitted respirator if you choose one',
+      environmentalImpact: `A 10 km transit trip instead of solo driving avoids roughly ${transitFactor} kg CO₂e using the calculator's documented factor; local air-quality effects vary by corridor.`,
+      caveat:
+        'No mask fully removes gaseous pollutants such as NO₂ or ozone, and transit cabins can be crowded; exposure depends on the specific route and vehicle.',
+      forecastAqi: afternoonAqi,
     });
   }
 
-  // EVENING
+  const ventilationAction = isAfternoonClean
+    ? 'Open opposite windows for 15–20 minutes during the cleaner midday window'
+    : 'Keep windows mostly closed; use kitchen extraction while cooking and damp-dust settled particles';
+
+  items.push({
+    id: 'afternoon-ventilation',
+    timeOfDay: 'Afternoon',
+    timeWindow: windowLabel(buckets.Afternoon, '12:00 – 17:00'),
+    action: ventilationAction,
+    explanation: `Outdoor afternoon air is projected near ~${afternoonAqi} AQI. Ventilation helps only when outdoor air is cleaner than indoor air and no nearby smoke source is present.`,
+    expectedBenefit:
+      'Dilutes indoor CO₂ and cooking pollutants without assuming outdoor air is always cleaner.',
+    estimatedCost: '$0 (Free)',
+    environmentalImpact: 'Natural ventilation can reduce mechanical cooling demand when temperatures are mild.',
+    caveat: 'Skip open-window ventilation if visible smoke, strong traffic odor, or AQI above 100 is present.',
+    forecastAqi: afternoonAqi,
+  });
+
+  const filtrationPlan =
+    prefs.budgetTier === 'free_first'
+      ? {
+          action: 'Keep windows closed during the evening peak, wipe surfaces with a damp cloth, and avoid indoor smoke sources',
+          cost: '$0 (Free)',
+        }
+      : prefs.budgetTier === 'balanced'
+        ? {
+            action: 'Keep windows closed during the evening peak and consider a DIY MERV-13 box-fan filter for the main sleeping room',
+            cost: '~$25–$45 one-time for a DIY Corsi-Rosenthal box (if parts are available)',
+          }
+        : {
+            action: 'Keep windows closed during the evening peak and run a correctly sized True HEPA purifier in the bedroom',
+            cost: '~$100–$250 one-time plus electricity, depending on room size',
+          };
+
   items.push({
     id: 'evening-indoor',
     timeOfDay: 'Evening',
-    timeWindow: '18:30 – 21:30',
-    action: isEveningHigh
-      ? 'Keep windows closed during evening traffic/inversion; use kitchen exhaust hood on high while cooking & run HEPA filtration in bedroom'
-      : 'Ventilate briefly after dinner cooking if outdoor smoke is absent, and log your daily clean-air actions',
-    explanation: `Evening AQI in ${aq.location.name} is projected near ~${eveningAqi}. Evening boundary-layer cooling and dinner-hour cooking often combine to spike both outdoor and indoor PM2.5.`,
-    expectedBenefit: 'Protects overnight sleep air quality in bedrooms where people spend 7–9 continuous hours.',
-    estimatedCost:
-      prefs.budgetTier === 'free_first'
-        ? '$0 (window timing & exhaust fan)'
-        : prefs.budgetTier === 'balanced'
-          ? '~$25–$45 DIY Corsi-Rosenthal box fan filter or ~$0.10/night purifier electricity'
-          : '~$100–$250 True HEPA purifier (CADR matched to bedroom size)',
+    timeWindow: windowLabel(buckets.Evening, '18:00 – 23:00'),
+    action: isEveningHigh ? filtrationPlan.action : 'Ventilate briefly after cooking if outdoor smoke is absent, then review tomorrow’s forecast',
+    explanation: `Evening AQI is projected near ~${eveningAqi}. Cooling boundary layers and cooking emissions can raise both outdoor and indoor particles after sunset.`,
+    expectedBenefit: 'Reduces overnight particle exposure in bedrooms during long sleeping hours.',
+    estimatedCost: isEveningHigh ? filtrationPlan.cost : '$0 (Free)',
     environmentalImpact:
-      'Cutting unnecessary standby appliances and batching evening laundry saves ~1–2 kWh/day (~0.4–0.8 kg CO2e).',
+      'Filtering and avoiding indoor combustion changes exposure; it does not by itself reduce outdoor emissions.',
     caveat:
-      'HEPA filters capture particles (PM2.5, dust, pollen) very effectively but do not remove gases like CO or NO2 unless paired with substantial activated carbon.',
+      'HEPA filters capture particles effectively but not CO or NO₂ without substantial activated carbon. No device guarantees health protection.',
     forecastAqi: eveningAqi,
   });
 
-  // EXTRA COOKING / SUSTAINABLE REVIEW STEP
   items.push({
     id: 'evening-reflection',
     timeOfDay: 'Evening',
     timeWindow: '21:30 – 22:00',
-    action: 'Avoid indoor incense/candles tonight and review tomorrow’s forecast before setting morning alarms',
-    explanation: 'Combustion indoors—even small candles or incense sticks—can raise fine particulate concentrations indoors far above outdoor moderate levels.',
-    expectedBenefit: 'Keeps overnight bedroom PM2.5 low without spending any money.',
+    action: 'Avoid incense and candles tonight, and recheck tomorrow’s forecast before setting morning alarms',
+    explanation:
+      'Indoor combustion can raise fine-particle concentrations above the outdoor neighborhood average even on a moderately clean day.',
+    expectedBenefit: 'Keeps overnight bedroom PM2.5 lower without requiring purchases.',
     estimatedCost: '$0 (Free)',
-    environmentalImpact: 'Eliminates avoidable indoor smoke and supports consistent low-impact household habits.',
-    caveat: 'If any household member has persistent wheezing, chest tightness, or asthma flare-ups, consult a licensed clinician rather than relying on an app.',
+    environmentalImpact: 'Avoids unnecessary indoor smoke production.',
+    caveat:
+      'If anyone has persistent wheezing, chest tightness, or asthma flare-ups, consult a qualified clinician rather than relying on this planner.',
     forecastAqi: eveningAqi,
   });
-
-  const bestOutdoorWindow =
-    cleanestHour.aqi <= 100
-      ? `Around ${cleanestHour.label} (~${cleanestHour.aqi} AQI)`
-      : 'No low-pollution outdoor window today — prioritize indoor low-smoke spaces';
-
-  const bestVentilationWindow =
-    cleanestHour.aqi <= 85
-      ? `15–20 min cross-ventilation near ${cleanestHour.label} (~${cleanestHour.aqi} AQI)`
-      : 'Hold off on open-window ventilation until AQI drops below ~85';
 
   return {
     city: aq.location.name,
     generatedAt: new Date().toISOString(),
     dataMode: aq.dataMode,
-    summary: `Personalized ${prefs.sensitivityGroup.replace('_', ' ')} routine for ${aq.location.name} (${aq.aqi} US AQI — ${aq.category}, primary pollutant ${aq.dominantPollutant}).`,
-    bestOutdoorWindow,
-    bestVentilationWindow,
+    summary: `Personalized ${prefs.sensitivityGroup.replace('_', ' ')} routine for ${aq.location.name} (${aq.aqi} US AQI — ${aq.category}; planning threshold ${highThreshold} AQI, primary pollutant ${aq.dominantPollutant}).`,
+    bestOutdoorWindow: cleanestHour
+      ? cleanestHour.aqi <= highThreshold
+        ? `Around ${cleanestHour.label} (~${cleanestHour.aqi} AQI)`
+        : `Cleanest upcoming hour is ${cleanestHour.label} (~${cleanestHour.aqi} AQI), still above your ${highThreshold} AQI planning threshold`
+      : 'No future hourly forecast available — recheck later',
+    bestVentilationWindow: cleanestHour
+      ? cleanestHour.aqi <= Math.max(50, highThreshold - 15)
+        ? `15–20 min cross-ventilation near ${cleanestHour.label} (~${cleanestHour.aqi} AQI)`
+        : `Hold off on open-window ventilation until AQI drops below ~${Math.max(50, highThreshold - 15)}`
+      : 'No future hourly forecast available — recheck later',
     items,
     safetyDisclaimer:
-      'BreatheWise AI provides informational environmental planning, not medical advice. Forecast models carry ±15–25% uncertainty and may miss hyperlocal smoke or traffic spikes. Consult a qualified healthcare professional for health conditions.',
+      'BreatheWise AI provides informational environmental planning, not medical advice. Forecast models carry uncertainty and may miss hyperlocal smoke or traffic spikes. Consult a qualified healthcare professional for health conditions.',
   };
 }
