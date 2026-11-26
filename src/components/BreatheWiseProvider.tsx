@@ -25,6 +25,7 @@ interface BreatheWiseContextValue {
   activeCity: CityLocation;
   airQuality: AirQualityPayload | null;
   alerts: IntelligentAlert[];
+  recommendations: DailyImpactRecommendation[];
   loadingAq: boolean;
   aqError: string | null;
   setActiveCity: (city: CityLocation) => void;
