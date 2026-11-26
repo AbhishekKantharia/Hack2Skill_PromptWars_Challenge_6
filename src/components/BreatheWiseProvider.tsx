@@ -88,6 +88,9 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
   const [activeCity, setActiveCityState] = useState<CityLocation>(FEATURED_CITIES[0]);
   const [airQuality, setAirQuality] = useState<AirQualityPayload | null>(null);
   const [alerts, setAlerts] = useState<IntelligentAlert[]>(EMPTY_ALERTS);
+  const [recommendations, setRecommendations] = useState<DailyImpactRecommendation[]>(
+    EMPTY_RECOMMENDATIONS
+  );
   const [loadingAq, setLoadingAq] = useState<boolean>(true);
   const [aqError, setAqError] = useState<string | null>(null);
   const activeCityRef = useRef(activeCity);
