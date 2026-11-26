@@ -1,6 +1,6 @@
 # BreatheWise AI — Your Intelligent Urban Air Quality Companion
 
-BreatheWise AI is a full-stack, GenAI-powered urban air quality platform built with **Next.js (App Router), React, TypeScript, Tailwind CSS, Recharts, Leaflet, and Supabase/PostgreSQL**. It transforms environmental readings and hourly forecasts into clear, affordable, and scientifically honest daily actions for families and communities.
+BreatheWise AI is a full-stack, GenAI-powered urban air quality platform built with **Next.js (App Router), React, TypeScript, Tailwind CSS, Recharts, Leaflet, Three.js/React Three Fiber/Drei, and Supabase/PostgreSQL**. It transforms environmental readings and hourly forecasts into clear, affordable, and scientifically honest daily actions for families and communities.
 
 ---
 
@@ -39,6 +39,11 @@ BreatheWise AI is a full-stack, GenAI-powered urban air quality platform built w
    - Sensitivity groups, budget tiers, default city, plan type (`household`, `school`, `neighborhood`, `housing_society`), people covered, metric/imperial units, Light/Dark theme, Demo Mode toggle, and customizable Intelligent Alert thresholds.
 10. **Competition Presentation (`/presentation`)**
      - Interactive deck covering Problem, Solution, Innovation, Technology, Social Impact, and a 2-minute judge walkthrough.
+11. **AirIndx Global Intelligence Dashboard (`/airindx`)**
+     - Premium dark dashboard with a full-screen 3D Earth, local satellite/night-light/specular/normal textures, atmospheric glow, and slowly rotating view.
+     - Clickable city AQI markers, location detail popup, drag/touch rotation, scroll zoom, and zoom buttons.
+     - `3D GLOBE` / `IQ AIR MAP` segmented switch; map view uses OpenStreetMap tiles with a dark filter.
+     - Dynamic multi-city readings from `/api/airindx/markers`, live/sample data badge, risk indicator modal, responsive navigation, and functional Facebook/X/WhatsApp sharing.
 
 **Data honesty:** live readings are used only when a real response contains usable AQI/PM2.5; missing pollutant values stay `null` and display as `N/A` with an uncertainty note. Demo values are always labeled `Demo Mode` and are never presented as measurements. Daily impact numbers come from fixed server-side formulas and assumptions; AI only explains those numbers. Personal settings, chat, challenge joins, and impact logs are isolated per browser session and never mixed with the public community feed.
 
@@ -52,6 +57,8 @@ BreatheWise AI is a full-stack, GenAI-powered urban air quality platform built w
 │   ├── types/breathewise.ts             # Shared TypeScript domain interfaces
 │   ├── lib/
 │   │   ├── aqi.ts                       # EPA AQI breakpoints, dominant pollutant, alert engine
+│   │   ├── airindx-data.ts              # AirIndx global city list and marker metadata
+│   │   ├── airindx-service.ts           # AirIndx multi-city marker payload builder
 │   │   ├── air-quality-service.ts       # Open-Meteo live AQI/Weather/Geocoding + WAQI + Demo fallback
 │   │   ├── ai-assistant.ts              # Gemini / OpenAI / grounded environmental fallback engine
 │   │   ├── calculations.ts              # EPA/IEA sustainability formulas & What-If simulator
@@ -78,9 +85,10 @@ BreatheWise AI is a full-stack, GenAI-powered urban air quality platform built w
 │   │   ├── DailyRecommendations.tsx     # Fixed-impact cards with formulas and sources
 │   │   ├── AlertsPanel.tsx              # Intelligent Alert notifications & banners
 │   │   ├── AirQualityCharts.tsx         # Recharts interactive trend/forecast visualizations
-│   │   └── AirMapLeaflet.tsx            # SSR-safe Leaflet spatial map
+│   │   ├── AirMapLeaflet.tsx            # SSR-safe Leaflet spatial map
+│   │   └── airindx/                     # AirIndx dashboard, R3F globe, and dynamic Leaflet map
 │   └── app/
-│       ├── api/                         # REST routes: air-quality, geocode, chat, routine, community, calculator, settings
+│       ├── api/                         # REST routes: air-quality, airindx/markers, geocode, chat, routine, community, calculator, settings
 │       ├── page.tsx                     # 1. Home Dashboard
 │       ├── assistant/page.tsx           # 2. AI Air Quality Assistant
 │       ├── map/page.tsx                 # 3. Live Air Quality Map
@@ -90,7 +98,9 @@ BreatheWise AI is a full-stack, GenAI-powered urban air quality platform built w
 │       ├── community/page.tsx           # 7. Community Clean-Air Challenges
 │       ├── learn/page.tsx               # 8. Environmental Learning Center
 │       ├── settings/page.tsx            # 9. User Settings
-│       └── presentation/page.tsx        # 10. Competition Presentation
+│       ├── presentation/page.tsx        # 10. Competition Presentation
+│       └── airindx/page.tsx             # 11. AirIndx Global Intelligence Dashboard
+├── public/airindx/                      # Local Earth day/night/specular/normal textures
 ├── .env.example                         # Environment variable template
 └── DEMO_SCRIPT.md                       # 3-minute live competition demo script
 ```
@@ -125,7 +135,7 @@ If using Supabase, run `supabase/schema.sql` in the Supabase SQL Editor to creat
 ```bash
 npm run dev
 ```
-Open `http://localhost:3000`.
+Open `http://localhost:3000` for BreatheWise AI, or `http://localhost:3000/airindx` for the AirIndx globe dashboard. AirIndx needs no API key: it uses Open-Meteo through the local API route, local Earth textures in `public/airindx/`, and OpenStreetMap tiles for the map view. If an upstream feed is unavailable, markers are clearly badged `SAMPLE DATA`.
 
 ### 4. Run tests, typecheck, and production build
 ```bash

@@ -7,18 +7,15 @@ import {
   ArrowUpRight,
   Droplets,
   ExternalLink,
-  Facebook,
   Globe2,
   Info,
   LoaderCircle,
   Map as MapIcon,
   Menu,
-  MessageCircle,
   Minus,
   Plus,
   RefreshCw,
   Thermometer,
-  Twitter,
   Wind,
   X,
 } from 'lucide-react';
@@ -41,6 +38,30 @@ const NAV_RIGHT = [
   { label: 'Technology', action: 'technology' },
 ] as const;
 
+function FacebookIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5 3.66 9.14 8.44 9.94v-7.03H7.9V12.06h2.54V9.85c0-2.51 1.49-3.9 3.77-3.9 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.89h2.78l-.45 2.91h-2.33V22c4.78-.8 8.44-4.94 8.44-9.94Z" />
+    </svg>
+  );
+}
+
+function XBrandIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M18.9 2H22l-6.77 7.74L23.2 22h-6.25l-4.9-6.41L6.3 22H3.2l7.24-8.28L2.6 2h6.41l4.43 5.85L18.9 2Zm-1.1 18h1.73L8.36 3.9H6.5L17.8 20Z" />
+    </svg>
+  );
+}
+
+function WhatsAppIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12.04 2a10 10 0 0 0-8.6 15.13L2 22l5.05-1.33A10 10 0 1 0 12.04 2Zm0 18.18a8.16 8.16 0 0 1-4.16-1.14l-.3-.18-3 .79.8-2.93-.2-.31a8.18 8.18 0 1 1 6.86 3.77Zm4.49-6.12c-.24-.12-1.44-.71-1.66-.79-.22-.08-.38-.12-.54.12-.16.24-.62.79-.76.95-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.93-1.19a7.25 7.25 0 0 1-1.34-1.66c-.14-.24-.01-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.31-.74-1.79-.2-.47-.4-.4-.54-.41h-.46c-.16 0-.42.06-.64.3-.22.24-.84.83-.84 2.02s.86 2.35.98 2.51c.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.16 1.51.1.46-.07 1.44-.59 1.64-1.16.2-.57.2-1.06.14-1.16-.06-.1-.22-.16-.46-.28Z" />
+    </svg>
+  );
+}
+
 function valueOrDash(value: number | null, suffix = '') {
   return value === null || !Number.isFinite(value) ? 'N/A' : `${value}${suffix}`;
 }
@@ -51,6 +72,7 @@ export function AirIndxDashboard() {
   const [degraded, setDegraded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('globe');
   const [zoomCommand, setZoomCommand] = useState<ZoomCommand>({ direction: 1, nonce: 0 });
@@ -84,35 +106,31 @@ export function AirIndxDashboard() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const loadMarkers = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/airindx/markers', { signal, cache: 'no-store' });
-      if (!response.ok) throw new Error('airindx request failed');
-      const data = (await response.json()) as AirIndxMarkersResponse;
-      setMarkers(data.markers);
-      setDataMode(data.dataMode);
-      setDegraded(data.degraded);
-      const preferred = data.markers.find((marker) => marker.id === 'jakarta') ?? data.markers[0];
-      setSelectedId((current) =>
-        current && data.markers.some((marker) => marker.id === current)
-          ? current
-          : preferred?.id ?? null
-      );
-    } catch (requestError) {
-      if (requestError instanceof DOMException && requestError.name === 'AbortError') return;
-      setError('Global readings could not be loaded. Please retry.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     const controller = new AbortController();
-    void loadMarkers(controller.signal);
+    fetch('/api/airindx/markers', { signal: controller.signal, cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('airindx request failed');
+        const data = (await response.json()) as AirIndxMarkersResponse;
+        setMarkers(data.markers);
+        setDataMode(data.dataMode);
+        setDegraded(data.degraded);
+        const preferred = data.markers.find((marker) => marker.id === 'jakarta') ?? data.markers[0];
+        setSelectedId((current) =>
+          current && data.markers.some((marker) => marker.id === current)
+            ? current
+            : preferred?.id ?? null
+        );
+      })
+      .catch((requestError: unknown) => {
+        if (requestError instanceof DOMException && requestError.name === 'AbortError') return;
+        setError('Global readings could not be loaded. Please retry.');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
     return () => controller.abort();
-  }, [loadMarkers]);
+  }, [reloadNonce]);
 
   useEffect(() => {
     if (!dialog) return;
@@ -480,13 +498,13 @@ export function AirIndxDashboard() {
                 <p className="text-xs font-semibold text-slate-300">Share</p>
                 <div className="mt-2 flex gap-2">
                   <button type="button" onClick={() => handleShare('facebook')} aria-label="Share on Facebook" className="airindx-social" title="Share on Facebook">
-                    <Facebook className="h-3.5 w-3.5" />
+                    <FacebookIcon className="h-3.5 w-3.5" />
                   </button>
                   <button type="button" onClick={() => handleShare('x')} aria-label="Share on X" className="airindx-social" title="Share on X">
-                    <Twitter className="h-3.5 w-3.5" />
+                    <XBrandIcon className="h-3.5 w-3.5" />
                   </button>
                   <button type="button" onClick={() => handleShare('whatsapp')} aria-label="Share on WhatsApp" className="airindx-social" title="Share on WhatsApp">
-                    <MessageCircle className="h-3.5 w-3.5" />
+                    <WhatsAppIcon className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
@@ -595,7 +613,11 @@ export function AirIndxDashboard() {
                     <p className="mt-2 text-sm text-slate-200">{error}</p>
                     <button
                       type="button"
-                      onClick={() => void loadMarkers()}
+                      onClick={() => {
+                        setLoading(true);
+                        setError(null);
+                        setReloadNonce((value) => value + 1);
+                      }}
                       className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-bold text-slate-900"
                     >
                       <RefreshCw className="h-3.5 w-3.5" /> Retry
