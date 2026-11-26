@@ -151,7 +151,7 @@ export default function DashboardPage() {
         </div>
       )}
       {/* Quick City Switcher Pills */}
-      <div className="hidden flex-wrap items-center justify-between gap-3 lg:flex">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-h1 tracking-tight text-slate-900 dark:text-white">
             Urban Air Quality Dashboard
@@ -192,78 +192,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <section className="rounded-3xl border border-emerald-200/70 bg-white p-4 shadow-xs lg:hidden dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-micro font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-              Today · {airQuality.location.name}
-            </p>
-            <h2 className="mt-1 text-h2 text-slate-900 dark:text-white">How is the air?</h2>
-          </div>
-          <span className={`shrink-0 rounded-full border px-2.5 py-1 text-micro font-bold ${meta.badgeClass}`}>
-            {airQuality.category}
-          </span>
-        </div>
-
-        <div className="mt-4 flex items-end justify-between gap-3">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <span className="text-6xl font-black leading-none tracking-tight" style={{ color: meta.colorHex }}>
-              {airQuality.aqi}
-            </span>
-            <div className="min-w-0">
-              <div className="text-sm font-bold text-slate-800 dark:text-white">US EPA AQI</div>
-              <div className="truncate text-micro text-slate-500 dark:text-slate-400">
-                {settings.sensitivityGroup.replace('_', ' ')}
-              </div>
-            </div>
-          </div>
-          {airQuality.dataMode === 'demo' && (
-            <span className="shrink-0 rounded-full bg-amber-100 px-2 py-1 text-micro font-bold text-amber-900 dark:bg-amber-950/60 dark:text-amber-300">
-              SAMPLE
-            </span>
-          )}
-        </div>
-
-        <p className="mt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-200">{meta.guidance}</p>
-
-        <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl bg-slate-50 p-3 dark:bg-slate-800/70">
-          <div className="min-w-0 text-center">
-            <div className="text-micro text-slate-500">Temp</div>
-            <div className="truncate text-sm font-bold text-slate-900 dark:text-white">{tempDisplay}</div>
-          </div>
-          <div className="min-w-0 text-center">
-            <div className="text-micro text-slate-500">Humidity</div>
-            <div className="truncate text-sm font-bold text-slate-900 dark:text-white">
-              {airQuality.weather.humidityPct !== null ? `${airQuality.weather.humidityPct}%` : 'N/A'}
-            </div>
-          </div>
-          <div className="min-w-0 text-center">
-            <div className="text-micro text-slate-500">Wind</div>
-            <div className="truncate text-sm font-bold text-slate-900 dark:text-white">{windDisplay}</div>
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <PrefetchLink
-            href="/cleaner-day"
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2.5 text-sm font-semibold text-white"
-          >
-            <CalendarClock className="h-4 w-4" />
-            Plan My Day
-          </PrefetchLink>
-          <PrefetchLink
-            href="/assistant"
-            apiPath="/api/chat"
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-emerald-300 px-3 py-2.5 text-sm font-semibold text-emerald-800 dark:border-emerald-800 dark:text-emerald-300"
-          >
-            <Bot className="h-4 w-4" />
-            Ask AI
-          </PrefetchLink>
-        </div>
-      </section>
-
       {/* Hero AQI & Weather Row */}
-      <div className="hidden gap-5 lg:grid lg:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2 relative overflow-hidden rounded-3xl border border-emerald-200/80 bg-gradient-to-br from-white via-emerald-50/50 to-sky-50/70 p-6 shadow-sm dark:border-slate-800 dark:from-slate-900 dark:via-emerald-950/30 dark:to-sky-950/30">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -396,36 +326,8 @@ export default function DashboardPage() {
       {/* Intelligent Alerts */}
       <AlertsStrip />
 
-      <section className="lg:hidden">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <h2 className="text-h3 text-slate-900 dark:text-white">Pollutants</h2>
-          <span className="text-micro text-slate-500 dark:text-slate-400">WHO 2021 reference</span>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {pollutantCards.map((p) => (
-            <div
-              key={p.label}
-              className="min-w-0 rounded-2xl border border-emerald-200/60 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"
-            >
-              <div className="truncate text-micro font-semibold text-slate-500 dark:text-slate-400">
-                {p.label}
-              </div>
-              <div className="mt-1 flex items-baseline gap-1">
-                <span className="truncate text-xl font-extrabold text-slate-900 dark:text-white">
-                  {p.value !== null ? p.value : 'N/A'}
-                </span>
-                <span className="shrink-0 text-micro text-slate-500">{p.unit}</span>
-              </div>
-              <div className="mt-1 truncate text-micro text-slate-500 dark:text-slate-400" title={p.guide}>
-                {p.guide}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* 6 Pollutant Metric Cards */}
-      <div className="hidden lg:block">
+      <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-h2 text-slate-900 dark:text-white flex items-center gap-2">
             <Activity className="h-4 w-4 text-emerald-600" />
@@ -464,54 +366,8 @@ export default function DashboardPage() {
       {/* Interactive Recharts Trends & Forecast */}
       <AirQualityCharts hourly={airQuality.hourly} />
 
-      <section className="lg:hidden">
-        <h2 className="mb-2 text-h3 text-slate-900 dark:text-white">Explore BreatheWise</h2>
-        <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
-          <PrefetchLink href="/map" className="flex items-center gap-3 px-3 py-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/50 dark:text-sky-300">
-              <MapIcon className="h-4 w-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-slate-900 dark:text-white">Live Air Map</span>
-              <span className="block truncate text-micro text-slate-500">Compare monitors and city snapshots</span>
-            </span>
-            <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
-          </PrefetchLink>
-          <PrefetchLink href="/indoor" className="flex items-center gap-3 px-3 py-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300">
-              <Home className="h-4 w-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-slate-900 dark:text-white">Indoor Advisor</span>
-              <span className="block truncate text-micro text-slate-500">Affordable filtration strategies and limits</span>
-            </span>
-            <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
-          </PrefetchLink>
-          <PrefetchLink href="/calculator" apiPath="/api/calculator" className="flex items-center gap-3 px-3 py-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300">
-              <Calculator className="h-4 w-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-slate-900 dark:text-white">Impact &amp; Simulator</span>
-              <span className="block truncate text-micro text-slate-500">Track avoided emissions and scenarios</span>
-            </span>
-            <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
-          </PrefetchLink>
-          <PrefetchLink href="/presentation" className="flex items-center gap-3 px-3 py-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-950/50 dark:text-sky-300">
-              <Activity className="h-4 w-4" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-semibold text-slate-900 dark:text-white">Competition Deck</span>
-              <span className="block truncate text-micro text-slate-500">Problem, GenAI innovation and impact</span>
-            </span>
-            <ArrowRight className="h-4 w-4 shrink-0 text-slate-400" />
-          </PrefetchLink>
-        </div>
-      </section>
-
       {/* Feature Navigation Cards */}
-      <div className="hidden gap-4 lg:grid lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <PrefetchLink
           href="/map"
           className="group min-w-0 rounded-2xl border border-slate-200 bg-white p-4 transition-colors hover:border-sky-400 dark:border-slate-800 dark:bg-slate-900"
