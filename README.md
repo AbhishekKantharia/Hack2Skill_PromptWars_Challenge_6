@@ -54,12 +54,17 @@ BreatheWise AI is a full-stack, GenAI-powered urban air quality platform built w
 │   │   ├── demo-data.ts                 # Sample reference profiles, cities, challenges
 │   │   ├── indoor-and-learn-data.ts     # Budget-tiered indoor guidance & pollutant guides
 │   │   ├── routine-engine.ts            # "My Cleaner Day" forecast-aware scheduler
-│   │   ├── request-context.ts           # Validated x-session-id extraction
-│   │   ├── client-api.ts                # Browser session header + typed apiFetch helper
+│   │   ├── request-context.ts           # Trusted proxy session extraction (legacy header fallback)
+│   │   ├── client-api.ts                # Typed apiFetch helper
+│   │   ├── security.ts                  # Constant-time token comparison, origin/admin checks
+│   │   ├── session-cookie.ts            # HMAC-signed HttpOnly session cookie helpers
+│   │   ├── api-security.ts              # Shared CSRF/CORS/rate-limit/content-type policy
+│   │   ├── spend-cap.ts                 # Per-session daily AI request cap
 │   │   ├── rate-limit.ts                # Per-session in-memory request limit (12/min)
 │   │   ├── validation.ts                # Allowlisted, bounded API input parsers
 │   │   ├── store.ts                     # Session-scoped Supabase or local JSON persistence
 │   │   └── __tests__/breathewise.test.ts# Automated Vitest suite
+│   ├── proxy.ts                         # CORS, CSRF, admin auth, signed session cookie
 │   ├── components/
 │   │   ├── BreatheWiseProvider.tsx      # Global state, city, alerts, theme, Demo Mode context
 │   │   ├── AppShell.tsx                 # Responsive mobile-first sidebar & header
@@ -124,7 +129,7 @@ npm run build
 npm start
 ```
 
-All four checks (`typecheck`, `lint`, 22 tests, production build) pass out of the box.
+All four checks (`typecheck`, `lint`, 26 tests, production build) pass out of the box.
 
 ---
 
