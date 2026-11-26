@@ -9,6 +9,7 @@ import {
   Calculator,
   CalendarClock,
   FlaskConical,
+  Globe2,
   Home,
   LayoutDashboard,
   Map as MapIcon,
@@ -37,6 +38,7 @@ const NAV_ITEMS = [
   { href: '/learn', label: 'Learning Center', icon: BookOpen },
   { href: '/settings', label: 'User Settings', icon: Settings, apiPath: '/api/settings' },
   { href: '/presentation', label: 'Competition Deck', icon: Presentation },
+  { href: '/airindx', label: 'AirIndx Globe', icon: Globe2 },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -52,6 +54,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     toggleTheme,
     toggleDemoMode,
   } = useBreatheWise();
+
+  if (pathname === '/airindx') {
+    return <div className="min-h-screen">{children}</div>;
+  }
 
   const isDemo = airQuality?.dataMode === 'demo';
   const degradedLive = isDemo && !settings.forceDemoMode;

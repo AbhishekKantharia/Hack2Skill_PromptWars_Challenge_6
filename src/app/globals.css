@@ -101,3 +101,178 @@
   font-family: inherit;
   z-index: 10;
 }
+
+.airindx-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, transparent, black 18%, black 82%, transparent);
+}
+
+.airindx-brand-orb {
+  display: inline-block;
+  width: 26px;
+  height: 26px;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 34% 28%, #ffffff 0 10%, #a5f3fc 18%, #3b82f6 52%, #0f172a 100%);
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.75), inset 0 0 7px rgba(255, 255, 255, 0.9);
+}
+
+.airindx-heading {
+  background: linear-gradient(100deg, #ffffff 0%, #dbeafe 48%, #93c5fd 100%);
+  background-clip: text;
+  color: transparent;
+}
+
+.airindx-card-purple {
+  border: 1px solid rgba(196, 181, 253, 0.16);
+  border-radius: 26px;
+  background: linear-gradient(
+    135deg,
+    rgba(76, 29, 149, 0.5),
+    rgba(30, 41, 120, 0.46) 55%,
+    rgba(15, 23, 74, 0.6)
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 20px 50px rgba(2, 6, 23, 0.35);
+  backdrop-filter: blur(18px);
+}
+
+.airindx-card-blue {
+  border: 1px solid rgba(125, 211, 252, 0.18);
+  border-radius: 26px;
+  background: linear-gradient(135deg, rgba(29, 78, 216, 0.72), rgba(14, 116, 144, 0.5) 58%, rgba(49, 46, 129, 0.52));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 20px 50px rgba(2, 6, 23, 0.3);
+}
+
+.airindx-number {
+  text-shadow: 0 0 30px rgba(103, 232, 249, 0.28);
+}
+
+.airindx-social {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.airindx-social:hover {
+  border-color: rgba(103, 232, 249, 0.45);
+  background: rgba(34, 211, 238, 0.12);
+  color: #a5f3fc;
+}
+
+.airindx-globe-shell {
+  background:
+    radial-gradient(circle at 50% 44%, rgba(37, 99, 235, 0.22), transparent 48%),
+    linear-gradient(180deg, #070c26, #050818);
+  box-shadow: inset 0 0 80px rgba(2, 6, 23, 0.8);
+}
+
+.airindx-space {
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.7) 1px, transparent 1px),
+    radial-gradient(circle, rgba(103, 232, 249, 0.45) 1px, transparent 1px);
+  background-size: 72px 72px, 113px 113px;
+  background-position: 0 0, 24px 36px;
+  opacity: 0.22;
+}
+
+.airindx-view {
+  animation: airindx-fade 450ms ease both;
+}
+
+.airindx-popup {
+  animation: airindx-rise 360ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+.airindx-zoom {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 11px;
+  background: rgba(11, 18, 51, 0.78);
+  color: #e2e8f0;
+  backdrop-filter: blur(12px);
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.airindx-zoom:hover {
+  border-color: rgba(103, 232, 249, 0.45);
+  background: rgba(34, 211, 238, 0.14);
+}
+
+.airindx-enter {
+  animation: airindx-rise 620ms ease both;
+}
+
+.airindx-delay-1 {
+  animation-delay: 80ms;
+}
+
+.airindx-delay-2 {
+  animation-delay: 160ms;
+}
+
+.airindx-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.72) saturate(0.65);
+}
+
+.airindx-map .leaflet-control-attribution {
+  display: none;
+}
+
+.airindx-leaflet-icon {
+  border: 0;
+  background: transparent;
+}
+
+.airindx-leaflet-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 2px solid rgba(255, 255, 255, 0.86);
+  border-radius: 9999px;
+  background: var(--marker-color);
+  color: #071022;
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: 0 0 18px var(--marker-color), inset 0 0 0 2px rgba(255, 255, 255, 0.22);
+  transition: transform 180ms ease;
+}
+
+.airindx-leaflet-dot.is-selected {
+  transform: scale(1.14);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.24), 0 0 24px var(--marker-color);
+}
+
+@keyframes airindx-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes airindx-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
