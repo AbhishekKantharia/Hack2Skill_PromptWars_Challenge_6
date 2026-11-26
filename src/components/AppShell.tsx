@@ -243,7 +243,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <footer className="border-t border-emerald-200/60 bg-white/70 px-4 py-4 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-400 sm:px-6">
           <div className="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <strong>BreatheWise AI</strong> — Informational urban environmental intelligence. Not medical advice; consult a qualified clinician for health concerns.
+              <strong>BreatheWise AI</strong> — Informational urban environmental intelligence. Not medical advice; consult a qualified clinician for health concerns.{' '}
+              <Link href="/legal" className="font-semibold text-emerald-700 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-900 dark:text-emerald-300 dark:hover:text-emerald-200">
+                Legal &amp; Privacy
+              </Link>
             </div>
             <div>
               {airQuality?.sourceName ? `Data source: ${airQuality.sourceName}` : 'Connecting to environmental source...'}
