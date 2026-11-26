@@ -3,6 +3,7 @@ import type {
   CityLocation,
   CommunityChallenge,
   CommunityObservation,
+  SpaceType,
   UserSettings,
 } from '@/types/breathewise';
 import { determineDominantPollutant, getAqiMeta } from '@/lib/aqi';
@@ -15,6 +16,13 @@ export const FEATURED_CITIES: CityLocation[] = [
   { name: 'Tokyo', country: 'Japan', region: 'Kanto', lat: 35.6762, lon: 139.6503, timezone: 'Asia/Tokyo' },
   { name: 'Nairobi', country: 'Kenya', region: 'Nairobi County', lat: -1.2921, lon: 36.8219, timezone: 'Africa/Nairobi' },
   { name: 'São Paulo', country: 'Brazil', region: 'São Paulo', lat: -23.5505, lon: -46.6333, timezone: 'America/Sao_Paulo' },
+];
+
+export const SPACE_TYPE_OPTIONS: Array<{ value: SpaceType; label: string; shortLabel: string }> = [
+  { value: 'household', label: 'Single household', shortLabel: 'Household' },
+  { value: 'school', label: 'School or classroom', shortLabel: 'School' },
+  { value: 'neighborhood', label: 'Neighborhood group', shortLabel: 'Neighborhood' },
+  { value: 'housing_society', label: 'Housing society or apartment block', shortLabel: 'Housing society' },
 ];
 
 export const DEFAULT_USER_SETTINGS: UserSettings = {
