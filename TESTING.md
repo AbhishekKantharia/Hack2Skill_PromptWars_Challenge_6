@@ -103,7 +103,9 @@ Do not mark a release ready until all four local scripts pass.
 - [ ] Forecast spike triggers when a future hour is high enough above current AQI.
 - [ ] Favorable ventilation window appears when forecast allows it.
 - [ ] Bell popover shows total alert count, color-coded urgency, and `Customize` link.
-- [ ] Home strip shows at most the first two alerts.
+- [ ] Home always shows a labeled `Intelligent Alerts` section with a count badge.
+- [ ] Home shows an empty state when there are no active advisories.
+- [ ] Home shows the first two alerts by default and expands to the full list when requested.
 - [ ] Disabling an alert category stops that advisory.
 
 ### Settings persistence

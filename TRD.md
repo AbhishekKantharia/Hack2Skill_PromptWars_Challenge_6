@@ -64,7 +64,7 @@ Scripts in `package.json`: `dev`, `build`, `start`, `lint`, `typecheck`, `test`.
 - Show six pollutant metric cards with standard units and WHO 2021 reference guidance.
 - Show an hourly chart with pollutant and horizon filters supported by the available data (`aqi`, `pm25`, `pm10`, `no2`, `o3`).
 - Show a calm setup card that captures city or neighborhood, plan type, and people covered before first use; afterward it collapses to an editable summary.
-- Show alerts from the server-evaluated alert engine.
+- Show a labeled `Intelligent Alerts` section with a count badge, a calm empty state, and an expander for all server-evaluated alerts.
 - Show six daily recommendation cards from the fixed impact engine: cleaner hour, worst-hour windows, indoor filtration, masked commute, cleaner travel, and lower-emission cooking.
 - Each recommendation must expose an impact headline, plain-language action, cost, best-for group, formula, assumptions, and official source links.
 - Provide quick city switching, `Plan My Cleaner Day`, `Ask AI About Today's Air`, and feature links to `/map`, `/indoor`, `/calculator`, and `/presentation`.

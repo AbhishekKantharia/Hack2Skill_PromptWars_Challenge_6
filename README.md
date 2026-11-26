@@ -13,6 +13,7 @@ BreatheWise AI is a full-stack, GenAI-powered urban air quality platform built w
    - Calm first-use setup for city/neighborhood, household vs. larger group, and people covered.
    - City search (**Open-Meteo Geocoding**) + optional browser geolocation.
    - Automatic **Live Mode** (Open-Meteo CAMS Air Quality & Weather APIs — no key required) and clearly labeled **Demo Mode** fallback.
+   - A labeled **Intelligent Alerts** section with count badge, empty state, and expandable full advisory list.
    - Six daily recommendation cards with plain-language actions, visible formulas, assumptions, and official sources.
 2. **AI Air Quality Assistant (`/assistant`)**
    - Grounded natural-language chatbot supporting **Google Gemini** (`GEMINI_API_KEY`) or **OpenAI** (`OPENAI_API_KEY`), plus an out-of-the-box grounded AI engine when no LLM key is provided.

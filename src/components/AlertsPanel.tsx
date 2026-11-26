@@ -123,33 +123,86 @@ export function AlertsBellButton() {
 
 export function AlertsStrip() {
   const { alerts } = useBreatheWise();
-  if (alerts.length === 0) return null;
+  const [expanded, setExpanded] = useState(false);
+  const visibleAlerts = expanded ? alerts : alerts.slice(0, 2);
 
   return (
-    <div className="grid gap-2.5 sm:grid-cols-2">
-      {alerts.slice(0, 2).map((alert) => {
-        const st = getAlertStyle(alert);
-        return (
-          <div
-            key={alert.id}
-            className={`flex items-start gap-2.5 rounded-2xl border p-3.5 text-xs transition ${st.wrapper}`}
+    <section
+      aria-label="Intelligent air quality alerts"
+      className="rounded-3xl border border-slate-200 bg-white/80 p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900/80"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <Bell className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <h2 className="text-h3 text-slate-900 dark:text-white">Intelligent Alerts</h2>
+          <span
+            className={`rounded-full px-2 py-0.5 text-micro font-bold ${
+              alerts.length === 0
+                ? 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                : 'bg-emerald-600 text-white'
+            }`}
           >
-            {st.icon}
-            <div className="flex-1">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-semibold text-sm">{alert.title}</span>
-                {alert.metricValue && (
-                  <span className={`rounded-full px-2 py-0.5 text-micro font-semibold ${st.badge}`}>
-                    {alert.metricValue}
-                  </span>
-                )}
-              </div>
-              <p className="mt-1 opacity-90">{alert.message}</p>
-              <p className="mt-1 font-medium">Recommended: {alert.recommendedAction}</p>
-            </div>
+            {alerts.length}
+          </span>
+        </div>
+        <PrefetchLink
+          href="/settings"
+          apiPath="/api/settings"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 hover:underline dark:text-sky-300"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Customize thresholds
+        </PrefetchLink>
+      </div>
+
+      {alerts.length === 0 ? (
+        <div className="mt-3 flex items-start gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-3.5 text-xs text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+          <div>
+            <p className="font-semibold">No active advisories right now.</p>
+            <p className="mt-1 opacity-90">
+              Alerts appear here when your saved thresholds are met, including forecast spikes and favorable ventilation windows.
+            </p>
           </div>
-        );
-      })}
-    </div>
+        </div>
+      ) : (
+        <>
+          <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+            {visibleAlerts.map((alert) => {
+              const st = getAlertStyle(alert);
+              return (
+                <div
+                  key={alert.id}
+                  className={`flex items-start gap-2.5 rounded-2xl border p-3.5 text-xs transition ${st.wrapper}`}
+                >
+                  {st.icon}
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-semibold text-sm">{alert.title}</span>
+                      {alert.metricValue && (
+                        <span className={`rounded-full px-2 py-0.5 text-micro font-semibold ${st.badge}`}>
+                          {alert.metricValue}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 opacity-90">{alert.message}</p>
+                    <p className="mt-1 font-medium">Recommended: {alert.recommendedAction}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {alerts.length > 2 && (
+            <button
+              type="button"
+              onClick={() => setExpanded((value) => !value)}
+              className="mt-3 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-emerald-400 dark:border-slate-700 dark:text-slate-200"
+            >
+              {expanded ? `Show fewer alerts` : `Show all ${alerts.length} alerts`}
+            </button>
+          )}
+        </>
+      )}
+    </section>
   );
 }

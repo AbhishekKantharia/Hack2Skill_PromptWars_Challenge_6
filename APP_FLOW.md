@@ -62,6 +62,7 @@ System responses:
 - `N/A` for missing pollutant values; weather condition may show `Weather data unavailable`.
 - Setup card shows a form until `setupComplete` is true, then an editable summary.
 - Daily recommendations show fixed impact headlines, actions, plain-language reasons, cost/best-for chips, data-mode labels, expandable formulas, assumptions, and source links.
+- A labeled `Intelligent Alerts` section is always visible with a count badge; it shows an empty state when no advisories are active, the first two alerts by default, and an expander for the full list.
 
 ### `/assistant` — AI Air Quality Assistant
 
