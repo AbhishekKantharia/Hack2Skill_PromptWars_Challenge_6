@@ -136,6 +136,7 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
         if (refreshId !== refreshIdRef.current) return;
         setAirQuality(data.airQuality);
         setAlerts(data.alerts ?? EMPTY_ALERTS);
+        setRecommendations(data.recommendations ?? EMPTY_RECOMMENDATIONS);
       } catch (err) {
         if (refreshId !== refreshIdRef.current) return;
         setAqError(err instanceof Error ? err.message : 'Failed to load air quality data');
@@ -231,13 +232,13 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
     themeTogglePendingRef.current = true;
     const previous = settingsRef.current.theme;
     const nextTheme = previous === 'dark' ? 'light' : 'dark';
-    const optimistic = { ...settingsRef.current, theme: nextTheme };
+    const optimistic: UserSettings = { ...settingsRef.current, theme: nextTheme };
     settingsRef.current = optimistic;
     setSettings(optimistic);
     void updateSettings({ theme: nextTheme })
       .then((ok) => {
         if (!ok) {
-          const reverted = { ...settingsRef.current, theme: previous };
+          const reverted: UserSettings = { ...settingsRef.current, theme: previous };
           settingsRef.current = reverted;
           setSettings(reverted);
         }
@@ -264,6 +265,7 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
       activeCity,
       airQuality,
       alerts,
+      recommendations,
       loadingAq,
       aqError,
       setActiveCity,
@@ -278,6 +280,7 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
       activeCity,
       airQuality,
       alerts,
+      recommendations,
       loadingAq,
       aqError,
       setActiveCity,

@@ -17,6 +17,10 @@ export function LocationSelector() {
   const [geoStatus, setGeoStatus] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const geoStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeSearch = open && query.trim().length > 0;
+  const visibleResults = activeSearch ? results : FEATURED_CITIES;
+  const visibleSearchError = activeSearch ? searchError : null;
+  const visibleSearching = activeSearch && searching;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -36,12 +40,7 @@ export function LocationSelector() {
 
   useEffect(() => {
     const term = query.trim();
-    if (!open || term.length === 0) {
-      setResults(FEATURED_CITIES);
-      setSearchError(null);
-      setSearching(false);
-      return;
-    }
+    if (!open || term.length === 0) return;
     const timer = setTimeout(async () => {
       setSearching(true);
       setSearchError(null);
@@ -115,17 +114,17 @@ export function LocationSelector() {
         {open && (
           <div className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
             <div className="px-2.5 py-1 text-micro font-semibold uppercase tracking-wider text-slate-400">
-              {searching ? 'Searching cities...' : query ? 'Search Results' : 'Featured Urban Hubs'}
+              {visibleSearching ? 'Searching cities...' : query ? 'Search Results' : 'Featured Urban Hubs'}
             </div>
-            {searchError && (
+            {visibleSearchError && (
               <div className="mx-2.5 mb-1.5 rounded-lg bg-rose-500/10 px-2 py-1 text-micro text-rose-700 dark:text-rose-300">
-                {searchError}
+                {visibleSearchError}
               </div>
             )}
-            {results.length === 0 ? (
+            {visibleResults.length === 0 ? (
               <div className="px-3 py-2 text-xs text-slate-500">No matching locations found.</div>
             ) : (
-              results.map((city, idx) => (
+              visibleResults.map((city, idx) => (
                 <button
                   key={`${city.name}-${city.lat}-${idx}`}
                   type="button"

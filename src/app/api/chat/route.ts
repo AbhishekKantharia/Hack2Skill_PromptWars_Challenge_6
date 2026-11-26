@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { generateAssistantReply } from '@/lib/ai-assistant';
 import { getAirQualityForLocation } from '@/lib/air-quality-service';
+import { buildDailyRecommendations } from '@/lib/impact-engine';
 import {
   appendChatMessages,
   clearChatHistory,
@@ -74,6 +75,9 @@ export async function POST(req: NextRequest) {
       question,
       airQuality,
       sensitivityGroup,
+      spaceType: settings.spaceType,
+      groupSize: settings.groupSize,
+      recommendations: buildDailyRecommendations(airQuality, settings),
     });
 
     const now = new Date().toISOString();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAirQualityForLocation, getMultiCitySnapshots } from '@/lib/air-quality-service';
 import { evaluateIntelligentAlerts } from '@/lib/aqi';
+import { buildDailyRecommendations } from '@/lib/impact-engine';
 import { getSettings } from '@/lib/store';
 import { getSessionId } from '@/lib/request-context';
 import { enforceApiPolicy } from '@/lib/api-security';
@@ -41,8 +42,9 @@ export async function GET(req: NextRequest) {
 
     const payload = await getAirQualityForLocation(city, { forceDemoMode: forceDemo });
     const alerts = evaluateIntelligentAlerts(payload, settings.alerts);
+    const recommendations = buildDailyRecommendations(payload, settings);
 
-    return NextResponse.json({ airQuality: payload, alerts });
+    return NextResponse.json({ airQuality: payload, alerts, recommendations });
   } catch {
     return NextResponse.json(
       { error: 'Unable to retrieve air quality data' },
