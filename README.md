@@ -10,10 +10,13 @@ BreatheWise AI is a full-stack, GenAI-powered urban air quality platform built w
    - Real-time **US EPA AQI**, **PM2.5, PM10, NO₂, SO₂, CO, Ozone (O₃)** with WHO 2021 reference levels.
    - Weather dispersion metrics (Temperature, Humidity, Wind Speed, Sky Condition).
    - Interactive 24-hour trend & forecast charts (**Recharts**) with metric and horizon filters.
+   - Calm first-use setup for city/neighborhood, household vs. larger group, and people covered.
    - City search (**Open-Meteo Geocoding**) + optional browser geolocation.
    - Automatic **Live Mode** (Open-Meteo CAMS Air Quality & Weather APIs — no key required) and clearly labeled **Demo Mode** fallback.
+   - Six daily recommendation cards with plain-language actions, visible formulas, assumptions, and official sources.
 2. **AI Air Quality Assistant (`/assistant`)**
    - Grounded natural-language chatbot supporting **Google Gemini** (`GEMINI_API_KEY`) or **OpenAI** (`OPENAI_API_KEY`), plus an out-of-the-box grounded AI engine when no LLM key is provided.
+   - Explains fixed impact results from `src/lib/impact-engine.ts` only; AI never invents or recalculates impact numbers.
    - Explains *why* recommendations matter, includes free/low-cost alternatives, states model uncertainty, and avoids medical diagnoses.
 3. **Live Air Quality Map (`/map`)**
    - Interactive **Leaflet** map with active-city monitoring nodes and multi-city global hub comparison.
@@ -32,11 +35,11 @@ BreatheWise AI is a full-stack, GenAI-powered urban air quality platform built w
 8. **Environmental Learning Center (`/learn`)**
    - Pollutant encyclopedia, US EPA AQI scale guide, uncertainty education, and health guidance boundaries.
 9. **User Settings (`/settings`)**
-   - Sensitivity groups, budget tiers, default city, metric/imperial units, Light/Dark theme, Demo Mode toggle, and customizable Intelligent Alert thresholds.
+   - Sensitivity groups, budget tiers, default city, plan type (`household`, `school`, `neighborhood`, `housing_society`), people covered, metric/imperial units, Light/Dark theme, Demo Mode toggle, and customizable Intelligent Alert thresholds.
 10. **Competition Presentation (`/presentation`)**
      - Interactive deck covering Problem, Solution, Innovation, Technology, Social Impact, and a 2-minute judge walkthrough.
 
-**Data honesty:** live readings are used only when a real response contains usable AQI/PM2.5; missing pollutant values stay `null` and display as `N/A` with an uncertainty note. Demo values are always labeled `Demo Mode` and are never presented as measurements. Personal settings, chat, challenge joins, and impact logs are isolated per browser session and never mixed with the public community feed.
+**Data honesty:** live readings are used only when a real response contains usable AQI/PM2.5; missing pollutant values stay `null` and display as `N/A` with an uncertainty note. Demo values are always labeled `Demo Mode` and are never presented as measurements. Daily impact numbers come from fixed server-side formulas and assumptions; AI only explains those numbers. Personal settings, chat, challenge joins, and impact logs are isolated per browser session and never mixed with the public community feed.
 
 ---
 
@@ -51,7 +54,8 @@ BreatheWise AI is a full-stack, GenAI-powered urban air quality platform built w
 │   │   ├── air-quality-service.ts       # Open-Meteo live AQI/Weather/Geocoding + WAQI + Demo fallback
 │   │   ├── ai-assistant.ts              # Gemini / OpenAI / grounded environmental fallback engine
 │   │   ├── calculations.ts              # EPA/IEA sustainability formulas & What-If simulator
-│   │   ├── demo-data.ts                 # Sample reference profiles, cities, challenges
+│   │   ├── demo-data.ts                 # Sample profiles, cities, challenges, plan type options
+│   │   ├── impact-engine.ts             # Fixed daily impact recommendations, formulas, sources
 │   │   ├── indoor-and-learn-data.ts     # Budget-tiered indoor guidance & pollutant guides
 │   │   ├── routine-engine.ts            # "My Cleaner Day" forecast-aware scheduler
 │   │   ├── request-context.ts           # Trusted proxy session extraction (legacy header fallback)
@@ -69,6 +73,8 @@ BreatheWise AI is a full-stack, GenAI-powered urban air quality platform built w
 │   │   ├── BreatheWiseProvider.tsx      # Global state, city, alerts, theme, Demo Mode context
 │   │   ├── AppShell.tsx                 # Responsive mobile-first sidebar & header
 │   │   ├── LocationSelector.tsx         # Live city autocomplete + optional geolocation
+│   │   ├── AirPlanSetupCard.tsx         # First-use location, plan type, and group size
+│   │   ├── DailyRecommendations.tsx     # Fixed-impact cards with formulas and sources
 │   │   ├── AlertsPanel.tsx              # Intelligent Alert notifications & banners
 │   │   ├── AirQualityCharts.tsx         # Recharts interactive trend/forecast visualizations
 │   │   └── AirMapLeaflet.tsx            # SSR-safe Leaflet spatial map
@@ -129,7 +135,7 @@ npm run build
 npm start
 ```
 
-Current snapshot note: the local branch has known typecheck and lint blockers; see `TRD.md` and `TESTING.md` before claiming all four checks pass.
+Current snapshot note: typecheck, lint, 29 unit tests, and production build pass locally. See `TRD.md`, `IMPLEMENTATION_PLAN.md`, and `TESTING.md` for deployment and manual-verification status.
 
 ---
 

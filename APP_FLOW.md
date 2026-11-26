@@ -22,9 +22,11 @@ Global shell applies to every page:
 ## 3. Primary Daily Decision Journey
 
 Land on `/`
-→ Provider hydrates session settings and fetches air quality
-→ Review AQI, category, pollutants, weather, alerts, and hourly forecast
-→ Change city via quick pills or header search/geolocation
+→ Provider hydrates session settings and fetches air quality plus fixed recommendations
+→ Complete the calm setup card with city, plan type, and people covered
+→ Review plain-language AQI meaning, pollutants, weather, alerts, and hourly forecast
+→ Read six fixed-calculation recommendations with visible formulas and sources
+→ Change city via quick pills, header search/geolocation, or the setup card
 → Open `/cleaner-day`
 → Choose sensitivity, commute, budget, and activities
 → Generate today's schedule
@@ -41,7 +43,9 @@ Purpose: Answer “What is the air like right now, and what should I do about it
 
 Primary actions:
 
-- Switch city with the six featured city pills or header search.
+- Enter city or neighborhood, plan type, and people covered in the setup card.
+- Switch city with the six featured city pills, header search, or setup card.
+- Open a recommendation card's formula and source details.
 - Open `Plan My Cleaner Day`.
 - Open `Ask AI About Today's Air`.
 - Filter the hourly chart by pollutant and time horizon.
@@ -56,6 +60,8 @@ System responses:
 - Amber degraded-feed banner when live data failed and labeled demo data is shown.
 - `SAMPLE DEMO DATA` badge and sample pollutant heading in demo mode.
 - `N/A` for missing pollutant values; weather condition may show `Weather data unavailable`.
+- Setup card shows a form until `setupComplete` is true, then an editable summary.
+- Daily recommendations show fixed impact headlines, actions, plain-language reasons, cost/best-for chips, data-mode labels, expandable formulas, assumptions, and source links.
 
 ### `/assistant` — AI Air Quality Assistant
 
@@ -74,6 +80,7 @@ System responses:
 - Optimistic user message immediately after submit.
 - Loading row: “Retrieving environmental readings…”.
 - Assistant message with timestamp, city, AQI, data mode, grounding references, and uncertainty note when available.
+- Assistant receives fixed impact results and may only explain those numbers; it cannot invent or recompute impact.
 - Inline error with retry wording, including special rate-limit messaging.
 - Provider label: Gemini, OpenAI, or grounded fallback.
 
@@ -204,7 +211,7 @@ Purpose: Personalize future visits.
 Actions:
 
 - Save display name.
-- Change sensitivity profile, budget tier, default home city, and units.
+- Change sensitivity profile, budget tier, default home city, `spaceType`, `groupSize`, and units.
 - Toggle light/dark theme.
 - Toggle demo mode vs live API.
 - Adjust four alert thresholds.
@@ -213,6 +220,7 @@ Actions:
 System responses:
 
 - Success/failure notice after writes.
+- Changing default city, `spaceType`, or `groupSize` shows `Air plan updated` and marks `setupComplete`.
 - Alert sliders auto-save after 400 ms.
 - Theme updates optimistically and reverts if the server write fails.
 - Severe threshold stays above high; ventilation threshold stays below high.
@@ -251,9 +259,9 @@ State: static only. The DMCA agent contact is still a placeholder and must be re
 ### Personalization
 
 `/settings`
-→ Change sensitivity, budget, city, units, theme, demo mode, and alerts
+→ Change sensitivity, budget, city, plan type, people covered, units, theme, demo mode, and alerts
 → Return to `/`
-→ Dashboard, alerts, planner, assistant, and charts use the updated preferences
+→ Dashboard, fixed recommendations, alerts, planner, assistant, and charts use the updated preferences
 
 ### Demo/competition walkthrough
 
@@ -280,6 +288,7 @@ State: static only. The DMCA agent contact is still a placeholder and must be re
 - Air-quality fetch fails with cached data: retry from banner while stale data remains visible.
 - Live feed unusable: app continues with clearly labeled demo fallback and explains `liveError`.
 - AI request fails: retype or retry; prior history is preserved.
+- Setup city search finds no match: inline status asks for a nearby city name; current city remains in use.
 - Settings write fails: notice appears and optimistic theme changes revert.
 - Geolocation denied: temporary status explains permission was declined; manual city search still works.
 - Preview deployment with `PREVIEW_ACCESS_TOKEN` configured: URL without valid token returns 404 until a valid token is supplied.
@@ -287,8 +296,8 @@ State: static only. The DMCA agent contact is still a placeholder and must be re
 ## 6. Important States
 
 - Loading: first air-quality fetch, map import, multi-city fetch, routine generation, assistant send, settings save, community submit.
-- Empty: no routine yet, no active advisories, no chat history, no map nodes, empty community grids.
-- Validation: bad city query, invalid settings values, overlong assistant question, malformed community report.
+- Empty: setup incomplete, no routine yet, no active advisories, no chat history, no map nodes, empty community grids.
+- Validation: bad city query, invalid settings values, invalid people count, overlong assistant question, malformed community report.
 - Error: network failure, provider failure, rate limit, API validation failure.
 - Degraded/demo: live fetch failed or demo mode forced; all values must be labeled.
 - Saved: settings, weekly plan, community action, chat history.
@@ -298,6 +307,7 @@ State: static only. The DMCA agent contact is still a placeholder and must be re
 
 - Every data-driven screen must show source/data-mode context.
 - Never present sample values as live measurements.
+- Daily impact values come only from `src/lib/impact-engine.ts`; AI output is explanatory only.
 - User text is inert; no HTML rendering from submissions or AI output.
 - Preferences are session-scoped; there are no user accounts or password flows.
 - Alerts are in-app only: bell popover and home strip. There is no email, SMS, or push channel.

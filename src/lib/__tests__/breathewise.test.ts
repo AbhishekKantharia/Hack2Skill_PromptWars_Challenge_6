@@ -11,6 +11,7 @@ import {
 } from '@/lib/calculations';
 import { buildDemoAirQualityPayload, DEFAULT_USER_SETTINGS, FEATURED_CITIES } from '@/lib/demo-data';
 import { generateCleanerDayRoutine } from '@/lib/routine-engine';
+import { buildDailyRecommendations } from '@/lib/impact-engine';
 import { generateAssistantReply } from '@/lib/ai-assistant';
 import {
   actOnChallenge,
@@ -133,6 +134,42 @@ describe('My Cleaner Day Routine & Grounded AI Safety', () => {
     expect(reply.answer).toContain(payload.location.name);
     expect(reply.answer).toContain('not medical advice');
     expect(reply.sources.length).toBeGreaterThan(0);
+  });
+
+  it('builds six fixed-impact recommendations with formulas and sources', () => {
+    const payload = buildDemoAirQualityPayload(FEATURED_CITIES[0]);
+    const settings = { ...DEFAULT_USER_SETTINGS, spaceType: 'school' as const, groupSize: 120 };
+    const recs = buildDailyRecommendations(payload, settings);
+    expect(recs).toHaveLength(6);
+    expect(new Set(recs.map((rec) => rec.id)).size).toBe(6);
+    recs.forEach((rec) => {
+      expect(rec.impact.headline.length).toBeGreaterThan(5);
+      expect(rec.impact.formula.length).toBeGreaterThan(10);
+      expect(rec.assumptions.length).toBeGreaterThan(0);
+      expect(rec.sources.length).toBeGreaterThan(0);
+    });
+    expect(recs.find((rec) => rec.id === 'mask_commute')?.impact.formula).toContain('0.85');
+    expect(recs.find((rec) => rec.id === 'cleaner_travel')?.impact.unit).toBe('kg CO₂e/week');
+  });
+
+  it('keeps AI fallback grounded in fixed impact headlines', async () => {
+    const payload = buildDemoAirQualityPayload(FEATURED_CITIES[0]);
+    const recs = buildDailyRecommendations(payload, {
+      ...DEFAULT_USER_SETTINGS,
+      spaceType: 'housing_society',
+      groupSize: 80,
+    });
+    const reply = await generateAssistantReply({
+      question: 'How can we protect the children in our building?',
+      airQuality: payload,
+      sensitivityGroup: 'children',
+      spaceType: 'housing_society',
+      groupSize: 80,
+      recommendations: recs,
+    });
+    expect(reply.answer).toContain('Fixed Impact Plan');
+    expect(reply.answer).toContain(recs[0].impact.headline);
+    expect(reply.answer).toContain('not medical advice');
   });
 
   it('redacts accidental GPS coordinates in community neighborhood labels', async () => {

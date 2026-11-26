@@ -6,28 +6,51 @@ Build one phase at a time.
 
 Do not start the next phase until the current phase passes its verification checks. Before coding, list assumptions and the files you expect to create or modify. After each phase, update `TRD.md`, `APP_FLOW.md`, and `TESTING.md` if a decision or behavior changed.
 
-## Current Phase: Phase R — Restore Build Health
+## Current Phase: Phase F — Daily Setup and Fixed Impact (Complete in working tree)
 
-The local snapshot at document creation is `bf720c5`, after reverting the two most recent feature commits. Fix this before adding new features.
+Dependencies: Phase R and Phase 1.
 
-Tasks:
+Assumptions:
 
-- Restore the explicit `UserSettings['theme']` type in the optimistic theme update in `src/components/BreatheWiseProvider.tsx:226-227`.
-- Remove the synchronous `setResults(FEATURED_CITIES)` call from the effect body in `src/components/LocationSelector.tsx:40`; initialize state from the constant instead.
-- Run all four checks: typecheck, lint, tests, build.
-- If a deployment is requested, deploy only after all four checks pass.
+- No user accounts are added; `spaceType`, `groupSize`, and `setupComplete` live in the existing session-scoped settings.
+- Open-Meteo remains the live data source; missing PM2.5 uses a labeled fixed AQI-breakpoint proxy.
+- AI is advisory only and cannot originate impact numbers.
+
+Files created or modified:
+
+- `src/types/breathewise.ts`, `src/lib/validation.ts`, `src/lib/demo-data.ts`, `src/lib/store.ts`
+- `src/lib/impact-engine.ts`, `src/lib/__tests__/breathewise.test.ts`
+- `src/app/api/air-quality/route.ts`, `src/app/api/chat/route.ts`
+- `src/lib/ai-assistant.ts`, `src/components/BreatheWiseProvider.tsx`
+- `src/components/AirPlanSetupCard.tsx`, `src/components/DailyRecommendations.tsx`
+- `src/app/page.tsx`, `src/app/settings/page.tsx`
+- `src/components/LocationSelector.tsx`
+- `TRD.md`, `APP_FLOW.md`, `TESTING.md`, `README.md`
+
+Tasks completed:
+
+- Fixed the former theme typing and set-state-in-effect blockers.
+- Added `spaceType`, `groupSize`, and `setupComplete` to settings validation, defaults, persistence merging, dashboard setup, and settings page.
+- Built six deterministic impact recommendations with formulas, assumptions, official sources, and data-mode labels.
+- Returned recommendations from `/api/air-quality` and exposed them through `BreatheWiseProvider`.
+- Grounded Gemini, OpenAI, and fallback AI answers in fixed results with explicit no-recalculation rules.
+- Added tests for recommendation shape, fixed factors, and AI grounding.
 
 Deliverable:
 
-- The current commit builds locally without type or lint errors.
+- A user can set up a location and group, see plain-language current AQI meaning, read six visible-impact actions, and ask AI to explain the fixed plan.
 
 Verify:
 
 - `npm run typecheck` passes.
 - `npm run lint` passes.
-- `npm test` passes with 27 tests.
+- `npm test` passes with 29 tests.
 - `npm run build` passes.
 - `git status --short` shows only intended changes.
+
+Next phase:
+
+- Phase G: confirm production deployment and complete manual mobile/desktop verification before claiming release readiness.
 
 ## Phase 0 — Project Setup
 

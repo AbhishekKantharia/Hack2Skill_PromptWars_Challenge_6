@@ -208,7 +208,7 @@ function fixedPlanSection(recommendations: DailyImpactRecommendation[] = []): st
   const bullets = top
     .map((rec) => `- **${rec.title}:** ${rec.impact.headline}. ${rec.impact.detail}`)
     .join('\n');
-  return `\n\n### Fixed Impact Plan\n${bullets}\n\nThe AI may explain these figures, but the figures come from fixed BreatheWise calculations.`;
+  return `\n\n### Fixed Impact Plan\n${bullets}\n\nThe AI may explain these figures, but the figures come from fixed BreatheWise calculations. This is not medical advice; consult a qualified healthcare professional for symptoms or chronic conditions.`;
 }
 
 function generateGroundedFallbackAnswer(req: AssistantRequest): string {

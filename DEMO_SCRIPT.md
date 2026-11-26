@@ -6,7 +6,9 @@
 
 ## Act 1: Live Telemetry & Intelligent Alerts (0:30 – 1:05)
 - On `/` (**Home Dashboard**), point out:
+  - The calm setup card: city, **household vs. school/neighborhood/housing society**, and people covered.
   - Real-time US EPA AQI, dominant pollutant, and all 6 pollutants (`PM2.5`, `PM10`, `NO₂`, `O₃`, `SO₂`, `CO`) with WHO 2021 guidelines.
+  - Six **Today’s cleaner-air plan** cards; expand one to show its fixed formula, assumptions, and official sources.
   - Weather dispersion card (wind speed & humidity).
   - **Intelligent Alerts** banner (elevated AQI advisory, forecasted spike, or favorable ventilation window).
   - Switch cities using the quick pills (**New Delhi** → **San Francisco**) or top search bar, and toggle **Dark/Light Mode**.
@@ -20,7 +22,7 @@
 ## Act 3: Grounded GenAI Assistant & Indoor Advisor (1:45 – 2:20)
 - Navigate to `/assistant`.
 - Click suggested question: *"Is it safe to exercise outdoors today?"*
-- Highlight how the response cites the active city's real AQI/PM2.5, suggests affordable alternatives, explains model uncertainty, and includes a non-medical disclaimer.
+- Highlight how the response cites the active city's real AQI/PM2.5, explains the fixed impact results without inventing new numbers, suggests affordable alternatives, states model uncertainty, and includes a non-medical disclaimer.
 - Briefly click `/indoor` to show Free vs. Affordable (DIY Corsi-Rosenthal box-fan filter) vs. Advanced (True HEPA) tiers with honest limitations.
 
 ## Act 4: Sustainability Calculator, What-If Simulator & Community (2:20 – 3:00)

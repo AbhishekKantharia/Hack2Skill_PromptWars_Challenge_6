@@ -20,7 +20,9 @@ import {
 import { useBreatheWise } from '@/components/BreatheWiseProvider';
 import { getAqiMeta } from '@/lib/aqi';
 import { AlertsStrip } from '@/components/AlertsPanel';
+import { AirPlanSetupCard } from '@/components/AirPlanSetupCard';
 import { AirQualityCharts } from '@/components/AirQualityCharts';
+import { DailyRecommendations } from '@/components/DailyRecommendations';
 import { FEATURED_CITIES } from '@/lib/demo-data';
 
 export default function DashboardPage() {
@@ -150,6 +152,8 @@ export default function DashboardPage() {
           <strong>Degraded feed:</strong> {airQuality.liveError ?? 'Live data unavailable.'} Values below are labeled Demo Mode.
         </div>
       )}
+      <AirPlanSetupCard />
+
       {/* Quick City Switcher Pills */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -325,6 +329,8 @@ export default function DashboardPage() {
 
       {/* Intelligent Alerts */}
       <AlertsStrip />
+
+      <DailyRecommendations />
 
       {/* 6 Pollutant Metric Cards */}
       <div>

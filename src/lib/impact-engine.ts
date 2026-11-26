@@ -136,7 +136,7 @@ export function buildDailyRecommendations(
   const indoorClosed = round(worstPm * 0.4, 1);
   const urgent = airQuality.aqi > 100;
 
-  return [
+  const recommendations: DailyImpactRecommendation[] = [
     {
       id: 'clean_hour',
       title: 'Move outdoor time to a cleaner hour',
@@ -286,5 +286,7 @@ export function buildDailyRecommendations(
       sources: [SOURCES.who, SOURCES.cdc, SOURCES.filtration],
       dataMode: airQuality.dataMode,
     },
-  ].sort((a, b) => a.priority - b.priority);
+  ];
+
+  return recommendations.sort((a, b) => a.priority - b.priority);
 }

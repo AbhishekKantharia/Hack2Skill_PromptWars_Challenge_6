@@ -7,12 +7,14 @@ Confirm that the main daily-decision journey works correctly, fails safely, does
 ## 2. Critical User Journey
 
 `/`
-→ Review AQI, pollutants, weather, alerts, and forecast
+→ Complete city/plan setup
+→ Review AQI meaning, pollutants, weather, alerts, and forecast
+→ Read fixed daily recommendations and expand at least one formula
 → Change city
 → `/cleaner-day`
 → Generate a personalized schedule
 → `/assistant`
-→ Ask a contextual question
+→ Ask a contextual question and confirm it uses fixed results
 → `/settings`
 → Change a preference and confirm it persists
 
@@ -20,14 +22,14 @@ The release should not ship if this journey is broken.
 
 ## 3. Current Automated Status
 
-At document creation, local `HEAD` is `bf720c5` after two revert commits.
+At document creation, local `HEAD` was `bf720c5` after two revert commits. The working tree now includes the setup flow and fixed impact engine.
 
 | Check | Command | Current result |
 | --- | --- | --- |
-| Typecheck | `npm run typecheck` | Fails: `BreatheWiseProvider.tsx:226-227`, `theme` inferred as `string` |
-| Lint | `npm run lint` | Fails: `LocationSelector.tsx:40:7`, `react-hooks/set-state-in-effect` |
-| Unit tests | `npm test` | Passes: 1 file, 27 tests |
-| Build | `npm run build` | Must be re-run after the two blockers are fixed; a deploy from this exact commit failed type checking |
+| Typecheck | `npm run typecheck` | Passes |
+| Lint | `npm run lint` | Passes |
+| Unit tests | `npm test` | Passes: 1 file, 29 tests |
+| Build | `npm run build` | Passes |
 | Dependency audit | `npm audit --audit-level=moderate` | Re-run before release; previous verified run was clean |
 
 Do not mark a release ready until all four local scripts pass.
@@ -57,6 +59,29 @@ Do not mark a release ready until all four local scripts pass.
 - [ ] Stale data remains visible with a non-blocking banner when refresh fails.
 - [ ] Refresh button disables while loading.
 
+## 4A. Setup and Fixed Recommendation Tests
+
+### First-time setup
+
+- [ ] Setup form appears until `setupComplete` is true.
+- [ ] Featured city name resolves without a geocode request.
+- [ ] Typed city search resolves to a geocoded city and saves it as the default.
+- [ ] An unknown city shows an inline message and keeps the current city.
+- [ ] Plan type accepts household, school, neighborhood, and housing society.
+- [ ] People count clamps to 1–100000 and updates impact scaling after save.
+- [ ] Saved setup collapses to a readable summary and can be changed again.
+- [ ] No account or password field is introduced.
+
+### Six fixed recommendations
+
+- [ ] Dashboard shows exactly six recommendation cards after air quality loads.
+- [ ] Cards cover cleaner hour, worst-hour windows, indoor filtration, masked commute, cleaner travel, and lower-emission cooking.
+- [ ] Each card shows an impact headline, plain-language action, reason, cost, best-for group, and data-mode label.
+- [ ] `See formula and sources` opens formula, unit, assumptions, and official links.
+- [ ] Changing sensitivity, budget, plan type, or people count changes the relevant fixed numbers after refresh.
+- [ ] Demo input is labeled on every card; degraded input remains clearly labeled.
+- [ ] AI-generated prose never replaces or edits a displayed impact number.
+
 ## 5. Location, Alerts, and Settings Tests
 
 ### City selection
@@ -84,7 +109,7 @@ Do not mark a release ready until all four local scripts pass.
 ### Settings persistence
 
 - [ ] Display name saves and survives refresh.
-- [ ] Sensitivity, budget, city, units, theme, and demo mode save.
+- [ ] Sensitivity, budget, city, plan type, people count, units, theme, and demo mode save.
 - [ ] Alert sliders auto-save after 400 ms.
 - [ ] Severe stays above high; ventilation stays below high.
 - [ ] Theme updates immediately and reverts if the save fails.
@@ -98,6 +123,8 @@ Do not mark a release ready until all four local scripts pass.
 - [ ] Optimistic user message appears immediately.
 - [ ] Loading row appears while waiting.
 - [ ] Answer includes city, AQI, data mode, grounding references, and uncertainty when available.
+- [ ] A question about impact includes the fixed impact headlines and states that numbers are not AI-generated.
+- [ ] Asking for a new percentage or invented measurement is refused as unavailable from the fixed model.
 - [ ] Provider label is Gemini, OpenAI, or grounded fallback.
 - [ ] API failure shows a recoverable inline error.
 - [ ] Rate-limit response shows specific wording.
@@ -240,6 +267,7 @@ Do not release if:
 - Typecheck, lint, tests, or build fail.
 - The critical journey cannot complete.
 - Live/demo/degraded states are mislabeled.
+- AI creates, recomputes, or replaces a fixed impact number.
 - Private session data or another user's data is accessible.
 - AI keys or Supabase service-role keys are exposed.
 - CORS is wildcard or mutations are accepted cross-site.

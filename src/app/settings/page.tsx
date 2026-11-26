@@ -3,11 +3,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Bell, Check, FlaskConical, Lock, Moon, Settings, Sun } from 'lucide-react';
 import { useBreatheWise } from '@/components/BreatheWiseProvider';
-import { FEATURED_CITIES } from '@/lib/demo-data';
+import { FEATURED_CITIES, SPACE_TYPE_OPTIONS } from '@/lib/demo-data';
 import type {
   AlertPreferences,
   BudgetTier,
   SensitivityGroup,
+  SpaceType,
 } from '@/types/breathewise';
 
 export default function SettingsPage() {
@@ -173,7 +174,7 @@ export default function SettingsPage() {
               value={settings.defaultCity.name}
               onChange={(e) => {
                 const found = FEATURED_CITIES.find((c) => c.name === e.target.value);
-                if (found) void savePatch({ defaultCity: found });
+                if (found) void savePatch({ defaultCity: found, setupComplete: true }, 'Air plan updated');
               }}
               className="w-full min-w-0 max-w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             >
@@ -188,6 +189,50 @@ export default function SettingsPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+              Who is this air plan for?
+            </label>
+            <select
+              value={settings.spaceType}
+              onChange={(e) =>
+                void savePatch(
+                  { spaceType: e.target.value as SpaceType, setupComplete: true },
+                  'Air plan updated'
+                )
+              }
+              className="w-full min-w-0 max-w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            >
+              {SPACE_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+              People Covered
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={100000}
+              value={settings.groupSize}
+              onChange={(e) =>
+                void savePatch(
+                  {
+                    groupSize: Math.min(100000, Math.max(1, Number(e.target.value) || 1)),
+                    setupComplete: true,
+                  },
+                  'Air plan updated'
+                )
+              }
+              className="w-full min-w-0 max-w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            />
           </div>
 
           <div>

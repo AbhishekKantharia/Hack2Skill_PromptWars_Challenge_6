@@ -8,7 +8,9 @@ Build a web application that turns urban air-quality readings and hourly forecas
 
 - Provide a fast, responsive dashboard for current air quality, alerts, and hourly trends on mobile and desktop.
 - Convert live or demo environmental data into personalized, budget-aware daily actions.
-- Keep AI guidance grounded in the active city, current readings, and the user's sensitivity profile.
+- Let a user enter a location and choose a household, school, neighborhood, or housing-society plan with a clear group size.
+- Calculate visible impact with fixed formulas; AI may rephrase results but must not create, recompute, or alter numbers.
+- Keep AI guidance grounded in the active city, current readings, the user's sensitivity profile, and fixed impact results.
 - Preserve data honesty: never present demo or degraded fallback values as live measurements, and show `N/A` for unavailable pollutants.
 - Keep setup simple: no user accounts or passwords; preferences are session-scoped with an anonymous signed cookie.
 - Make all external API calls server-side where secrets or rate limits matter.
@@ -17,13 +19,13 @@ Build a web application that turns urban air-quality readings and hourly forecas
 ## 3. Current Snapshot
 
 - Workspace: `C:\Users\abhis\Downloads\Hack2Skill_PromptWars_Challenge_6`.
-- Local git state at document creation: `bf720c5`, after reverting the two most recent feature commits.
-- Current automated test suite: `src/lib/__tests__/breathewise.test.ts`, 27 tests, all passing.
-- Current known blockers in the local snapshot:
-  - `npm run typecheck` fails in `src/components/BreatheWiseProvider.tsx:226-227` because `theme` is inferred as `string` instead of `'light' | 'dark'`.
-  - `npm run lint` fails in `src/components/LocationSelector.tsx:40:7` with `react-hooks/set-state-in-effect`.
-  - `npm run build` must be re-run after those fixes; a deployment attempt from this exact commit failed type checking.
-- Production alias currently serves the last ready deployment; the failed deploy did not replace it. Do not assume the alias reflects the current local commit.
+- Local git state at document creation: `bf720c5`, after reverting the two most recent feature commits. The working tree now adds the setup flow, fixed impact engine, daily recommendation cards, and AI grounding.
+- Current automated test suite: `src/lib/__tests__/breathewise.test.ts`, 29 tests, all passing.
+- Verified local scripts: `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` all pass.
+- The former blockers are resolved:
+  - `src/components/BreatheWiseProvider.tsx` uses an explicit `UserSettings` type for optimistic theme updates.
+  - `src/components/LocationSelector.tsx` derives empty-query results instead of setting state inside an effect.
+- Production alias currently serves the last ready deployment; do not assume it reflects these uncommitted working-tree changes.
 
 ## 4. Proposed Tech Stack
 
@@ -61,14 +63,29 @@ Scripts in `package.json`: `dev`, `build`, `start`, `lint`, `typecheck`, `test`.
 - Show current US EPA AQI, category, dominant pollutant, guidance, and weather/dispersion context.
 - Show six pollutant metric cards with standard units and WHO 2021 reference guidance.
 - Show an hourly chart with pollutant and horizon filters supported by the available data (`aqi`, `pm25`, `pm10`, `no2`, `o3`).
+- Show a calm setup card that captures city or neighborhood, plan type, and people covered before first use; afterward it collapses to an editable summary.
 - Show alerts from the server-evaluated alert engine.
+- Show six daily recommendation cards from the fixed impact engine: cleaner hour, worst-hour windows, indoor filtration, masked commute, cleaner travel, and lower-emission cooking.
+- Each recommendation must expose an impact headline, plain-language action, cost, best-for group, formula, assumptions, and official source links.
 - Provide quick city switching, `Plan My Cleaner Day`, `Ask AI About Today's Air`, and feature links to `/map`, `/indoor`, `/calculator`, and `/presentation`.
 - In demo or degraded mode, label values clearly and explain the live-feed failure.
+
+### Fixed Impact Engine and Daily Recommendations
+
+- `src/lib/impact-engine.ts` is the only source of daily impact numbers.
+- `/api/air-quality` computes recommendations with `buildDailyRecommendations(payload, settings)` and returns them with `airQuality` and `alerts`.
+- `BreatheWiseProvider` exposes `recommendations` alongside `airQuality`; `DailyRecommendations` renders them without modifying values.
+- Inputs are live or labeled demo air-quality data, sensitivity profile, budget tier, `spaceType`, and `groupSize`.
+- If measured PM2.5 is missing, the engine uses fixed US EPA AQI-to-PM2.5 breakpoints and labels that assumption.
+- Fixed planning factors include breathing rates by sensitivity profile, open/closed-window infiltration proxies (0.8 / 0.4), 0.85 effective N95/FFP2 filtration after fit leakage, EPA two-thirds-of-room-area CADR sizing, 0.5 ACH infiltration, 1.55 kg CO₂e saved per 10 km transit trip, and a clearly labeled 80 µg/m³ cooking spike.
+- Recommendations include visible formulas, assumptions, source links, and data-mode labels.
+- The chat route sends the same fixed results to the AI as authoritative context.
 
 ### AI Air Quality Assistant (`/assistant`)
 
 - Accept suggested questions and custom questions up to 1000 characters.
-- Send only the current question and minimal grounding context to the approved AI provider.
+- Send only the current question and minimal grounding context, including fixed impact results, to the approved AI provider.
+- Prompt must state that fixed impact numbers are authoritative and must be quoted only, never recomputed, extrapolated, rounded differently, or replaced.
 - Show optimistic user messages, a loading state, grounded answers with source/data-mode context, and recoverable errors.
 - Persist the last 40 chat messages per session and allow clearing history.
 - Show provider label: Gemini, OpenAI, or grounded fallback.
@@ -117,7 +134,8 @@ Scripts in `package.json`: `dev`, `build`, `start`, `lint`, `typecheck`, `test`.
 
 ### Settings (`/settings`)
 
-- Let the user edit display name, sensitivity profile, budget tier, default city, units, theme, demo mode, alert thresholds, and alert toggles.
+- Let the user edit display name, sensitivity profile, budget tier, default city, `spaceType`, `groupSize`, units, theme, demo mode, alert thresholds, and alert toggles.
+- Changing default city, `spaceType`, or `groupSize` marks `setupComplete` true.
 - Auto-save alert sliders after 400 ms while preserving ordering constraints.
 - Persist theme in both local storage and server settings; optimistic changes must revert on failure.
 
@@ -150,10 +168,19 @@ Scripts in `package.json`: `dev`, `build`, `start`, `lint`, `typecheck`, `test`.
 - Google Fonts through `next/font/google`; fonts are fetched at build time.
 - No email, SMS, push notification, webhook, WebSocket, upload, payment, or analytics service in V1.
 
+### External Guidance References
+
+- `https://open-meteo.com/en/docs/air-quality-api` — CAMS air-quality forecast source, resolution, horizon, and hourly variables.
+- `https://www.airnow.gov/aqi/aqi-basics/` — US AQI bands and sensitive-group interpretation.
+- `https://www.who.int/news-room/questions-and-answers/item/who-global-air-quality-guidelines` — WHO 2021 air-quality guidelines and household combustion context.
+- `https://www.cdc.gov/wildfires/safety/how-to-safely-stay-safe-during-a-wildfire.html` — keeping smoke outside, portable cleaners, avoiding indoor burning, and N95 guidance.
+- `https://www.epa.gov/system/files/documents/2026-06/indoor-air-filtration-factsheet.pdf` — CADR sizing, MERV-13/HEPA filtration, and avoidance of ozone-generating cleaners.
+
 ## 8. Data Requirements
 
 - Domain types live in `src/types/breathewise.ts`.
-- Session-scoped state includes settings, chat history, joined challenge IDs, upvoted observation IDs, challenge action counts, and saved calculator frequencies.
+- Session-scoped settings include `displayName`, `defaultCity`, `sensitivityGroup`, `budgetTier`, `spaceType`, `groupSize`, `setupComplete`, `theme`, `units`, `forceDemoMode`, and `alerts`.
+- Session-scoped state also includes chat history, joined challenge IDs, upvoted observation IDs, challenge action counts, and saved calculator frequencies.
 - Local persistence uses `data/local-store.json`, gitignored, with serialized writes and a read-only-filesystem fallback.
 - Supabase schema lives in `supabase/schema.sql` with RLS on all seven tables.
 - Personal tables are service-role-only; no anon client policy grants access to private profiles, routines, or chats.
@@ -198,7 +225,7 @@ Names only; never commit or print values.
 
 - `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` all pass locally.
 - `npm audit --audit-level=moderate` reports no known moderate or higher dependency vulnerabilities.
-- Critical journey works end to end: dashboard → city selection → cleaner-day plan → assistant question → settings persistence.
+- Critical journey works end to end: setup → dashboard/current AQI → fixed daily recommendations → city selection → cleaner-day plan → assistant question grounded in fixed results → settings persistence.
 - Live, demo, and degraded data states are visibly distinguishable.
 - Mobile, tablet, and desktop layouts pass the checks in `TESTING.md`.
 - No secrets are present in client code, git history, or committed files.
