@@ -9,3 +9,5 @@ data/local-store.json
 coverage/
 *.tsbuildinfo
 next-env.d.ts
+
+.vercel
