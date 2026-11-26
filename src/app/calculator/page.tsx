@@ -259,28 +259,27 @@ export default function CalculatorAndSimulatorPage() {
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
                 Breakdown by habit category
               </p>
-              <div className="h-72 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: -12, bottom: 20 }}>
+              <div className="h-72 w-full min-w-0 max-w-full overflow-hidden">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={100}>
+                  <BarChart data={chartData} margin={CHART_MARGIN}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.2)" />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fontSize: 10, fill: '#64748b' }}
-                      angle={-15}
-                      textAnchor="end"
+                    <XAxis dataKey="name" tick={X_AXIS_TICK} angle={-15} textAnchor="end" />
+                    <YAxis tick={Y_AXIS_TICK} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} />
+                    <Bar
+                      dataKey="weeklyCo2"
+                      name="Weekly kg CO₂e"
+                      fill="#10b981"
+                      radius={BAR_RADIUS}
+                      isAnimationActive={false}
                     />
-                    <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: '12px',
-                        backgroundColor: 'rgba(15, 23, 42, 0.94)',
-                        border: 'none',
-                        color: '#fff',
-                        fontSize: '12px',
-                      }}
+                    <Bar
+                      dataKey="monthlyCo2"
+                      name="Monthly kg CO₂e"
+                      fill="#0284c7"
+                      radius={BAR_RADIUS}
+                      isAnimationActive={false}
                     />
-                    <Bar dataKey="weeklyCo2" name="Weekly kg CO₂e" fill="#10b981" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="monthlyCo2" name="Monthly kg CO₂e" fill="#0284c7" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

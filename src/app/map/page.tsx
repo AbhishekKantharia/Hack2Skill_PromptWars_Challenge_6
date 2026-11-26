@@ -1,17 +1,20 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Globe2, Layers, MapPin, Radio } from 'lucide-react';
 import { useBreatheWise } from '@/components/BreatheWiseProvider';
 import type { AirQualityStation } from '@/types/breathewise';
 import { getAqiMeta } from '@/lib/aqi';
-import { apiFetch } from '@/lib/client-api';
+import { apiFetch, prefetchApiGet } from '@/lib/client-api';
+
+const EMPTY_STATIONS: AirQualityStation[] = [];
+const GLOBAL_MAP_PATH = '/api/air-quality?multi=true';
 
 const AirMapLeaflet = dynamic(() => import('@/components/AirMapLeaflet'), {
   ssr: false,
   loading: () => (
-    <div className="h-[460px] w-full rounded-2xl bg-slate-200/70 dark:bg-slate-800 animate-pulse flex items-center justify-center text-sm text-slate-500">
+    <div className="flex h-[460px] w-full items-center justify-center rounded-2xl bg-slate-200/70 text-sm text-slate-500 dark:bg-slate-800">
       Loading interactive environmental map...
     </div>
   ),
@@ -55,14 +58,13 @@ export default function LiveMapPage() {
     };
   }, [scope, settings.forceDemoMode]);
 
-  const stations = scope === 'global' ? globalStations : (airQuality?.stations ?? []);
+  const stations = useMemo(
+    () => (scope === 'global' ? globalStations : (airQuality?.stations ?? EMPTY_STATIONS)),
+    [scope, globalStations, airQuality?.stations]
+  );
 
-  const pollutantGuidelines: Record<Exclude<typeof metric, 'aqi'>, number> = {
-    pm25: 15,
-    pm10: 45,
-    no2: 25,
-    o3: 100,
-  };
+  const globalPath = `${GLOBAL_MAP_PATH}&demo=${settings.forceDemoMode}`;
+  const warmGlobal = () => void prefetchApiGet(globalPath);
 
   return (
     <div className="space-y-6">

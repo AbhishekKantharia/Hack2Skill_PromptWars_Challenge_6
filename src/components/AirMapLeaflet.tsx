@@ -33,8 +33,8 @@ function markerColor(st: AirQualityStation, metric: Props['metric']): string {
 
 function buildPopup(st: AirQualityStation, metric: Props['metric']): HTMLElement {
   const root = document.createElement('div');
-  root.style.minWidth = '200px';
-  root.style.fontFamily = 'sans-serif';
+  root.style.maxWidth = 'min(240px, 70vw)';
+  root.style.overflowWrap = 'anywhere';
 
   const title = document.createElement('div');
   title.style.cssText = 'font-weight:700;font-size:13px;margin-bottom:4px';
@@ -60,7 +60,7 @@ function buildPopup(st: AirQualityStation, metric: Props['metric']): HTMLElement
   return root;
 }
 
-export default function AirMapLeaflet({ centerLat, centerLon, stations, metric }: Props) {
+function AirMapLeaflet({ centerLat, centerLon, stations, metric }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
@@ -71,7 +71,7 @@ export default function AirMapLeaflet({ centerLat, centerLon, stations, metric }
     const map = L.map(containerRef.current, {
       center: [centerLat, centerLon],
       zoom: 10,
-      scrollWheelZoom: true,
+      scrollWheelZoom: false,
     });
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -93,7 +93,7 @@ export default function AirMapLeaflet({ centerLat, centerLon, stations, metric }
   useEffect(() => {
     if (mapRef.current) {
       mapRef.current.setView([centerLat, centerLon], stations.length > 5 ? 3 : 10, {
-        animate: true,
+        animate: false,
       });
     }
   }, [centerLat, centerLon, stations.length]);
@@ -119,7 +119,9 @@ export default function AirMapLeaflet({ centerLat, centerLon, stations, metric }
   return (
     <div
       ref={containerRef}
-      className="h-[460px] w-full rounded-2xl border border-emerald-200/70 dark:border-slate-800 overflow-hidden"
+      className="h-[460px] w-full max-w-full overflow-hidden rounded-2xl border border-emerald-200/70 dark:border-slate-800"
     />
   );
 }
+
+export default React.memo(AirMapLeaflet);
