@@ -7,6 +7,8 @@ import type {
 } from '@/types/breathewise';
 import { determineDominantPollutant, getAqiMeta, pm25ToUsAqi } from '@/lib/aqi';
 import { buildDemoAirQualityPayload, FEATURED_CITIES } from '@/lib/demo-data';
+import { resolveDemoMode } from '@/lib/demo-mode';
+import { formatLocalHour, parseUtcTimestamp } from '@/lib/time';
 
 function roundOrNull(value: unknown, digits: number): number | null {
   return typeof value === 'number' && Number.isFinite(value)
@@ -26,9 +28,15 @@ function describeWmoWeatherCode(code: number | null | undefined): string {
   return 'Variable sky';
 }
 
-function isFutureLocalHour(iso: string, localNow: string): boolean {
-  if (iso.includes('T') && localNow.includes('T')) return iso > localNow;
-  return new Date(iso).getTime() > Date.now();
+function demoFallback(city: CityLocation): AirQualityPayload {
+  const reason = 'Live air-quality feed unavailable; showing labeled sample data.';
+  const demo = buildDemoAirQualityPayload(city);
+  return {
+    ...demo,
+    degraded: true,
+    liveError: reason,
+    uncertaintyNote: `${reason} ${demo.uncertaintyNote}`,
+  };
 }
 
 export async function searchCities(query: string): Promise<CityLocation[]> {
@@ -75,9 +83,7 @@ export async function getAirQualityForLocation(
   city: CityLocation,
   options?: { forceDemoMode?: boolean }
 ): Promise<AirQualityPayload> {
-  const forceDemo =
-    options?.forceDemoMode === true ||
-    (options?.forceDemoMode === undefined && process.env.NEXT_PUBLIC_DEMO_MODE === 'true');
+  const forceDemo = resolveDemoMode(options?.forceDemoMode, undefined);
   if (forceDemo) {
     return buildDemoAirQualityPayload(city);
   }
@@ -88,10 +94,10 @@ export async function getAirQualityForLocation(
       `https://air-quality-api.open-meteo.com/v1/air-quality?${locationParams}` +
       `&current=us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone` +
       `&hourly=us_aqi,pm10,pm2_5,nitrogen_dioxide,ozone` +
-      `&past_hours=8&forecast_hours=16&timezone=auto`;
+      `&past_hours=8&forecast_hours=17&timezone=UTC`;
     const weatherUrl =
       `https://api.open-meteo.com/v1/forecast?${locationParams}` +
-      `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code&timezone=auto`;
+      `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code&timezone=UTC`;
 
     const [aqRes, weatherRes] = await Promise.all([
       fetch(aqUrl, { cache: 'no-store', signal: AbortSignal.timeout(7000) }),
@@ -124,24 +130,25 @@ export async function getAirQualityForLocation(
     const hourlyPm10: Array<number | null> = aqJson.hourly?.pm10 ?? [];
     const hourlyO3: Array<number | null> = aqJson.hourly?.ozone ?? [];
     const hourlyNo2: Array<number | null> = aqJson.hourly?.nitrogen_dioxide ?? [];
-    const localNow = typeof current.time === 'string' ? current.time : hourlyTimes[0] ?? '';
+    const nowMs =
+      parseUtcTimestamp(current.time) ?? parseUtcTimestamp(hourlyTimes[0]) ?? Date.now();
 
     const hourly: HourlyAirPoint[] = hourlyTimes
-      .slice(0, 24)
       .map((iso, index): HourlyAirPoint | null => {
         const pm25Val = roundOrNull(hourlyPm25[index], 1);
         const rawHourAqi = roundOrNull(hourlyAqi[index], 0);
         const hourAqi = rawHourAqi ?? (pm25Val !== null ? pm25ToUsAqi(pm25Val) : null);
         if (hourAqi === null) return null;
+        const pointMs = parseUtcTimestamp(iso);
         return {
           time: iso,
-          label: iso.includes('T') ? iso.slice(11, 16) : iso,
+          label: formatLocalHour(iso, city.timezone),
           aqi: hourAqi,
           pm25: pm25Val,
           pm10: roundOrNull(hourlyPm10[index], 1),
           o3: roundOrNull(hourlyO3[index], 1),
           no2: roundOrNull(hourlyNo2[index], 1),
-          isForecast: localNow ? isFutureLocalHour(iso, localNow) : isFutureLocalHour(iso, ''),
+          isForecast: pointMs === null ? false : pointMs > nowMs,
         };
       })
       .filter((point): point is HourlyAirPoint => point !== null);
@@ -239,15 +246,16 @@ export async function getAirQualityForLocation(
           : 'All reported current pollutant fields are present in the upstream response.'),
     };
   } catch {
-    return buildDemoAirQualityPayload(city);
+    return demoFallback(city);
   }
 }
 
 export async function getMultiCitySnapshots(
-  forceDemoMode = false
+  forceDemoMode?: boolean
 ): Promise<AirQualityStation[]> {
+  const resolved = resolveDemoMode(forceDemoMode, undefined);
   const results = await Promise.all(
-    FEATURED_CITIES.map((c) => getAirQualityForLocation(c, { forceDemoMode }))
+    FEATURED_CITIES.map((c) => getAirQualityForLocation(c, { forceDemoMode: resolved }))
   );
   return results.flatMap((payload) => payload.stations);
 }

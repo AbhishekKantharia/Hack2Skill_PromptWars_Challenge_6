@@ -88,7 +88,7 @@ export default function AssistantPage() {
           role: 'assistant',
           content: err instanceof Error && err.message.includes('Too many')
             ? 'Too many requests right now. Please wait a minute and try again.'
-            : 'Sorry, I encountered a temporary error reaching the AI service. Please try again or check your active city settings.',
+            : `Sorry, the AI service could not complete that request: ${err instanceof Error ? err.message : 'Unknown error'}`,
           timestamp: new Date().toISOString(),
         },
       ]);
@@ -210,7 +210,7 @@ export default function AssistantPage() {
                   </div>
                   {m.role === 'assistant' && m.sources && m.sources.length > 0 && (
                     <div className="mt-2 border-t border-slate-200 pt-2 text-[10px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                      <strong>Sources:</strong> {m.sources.join(' · ')}
+                      <strong>Grounding references:</strong> {m.sources.join(' · ')}
                       {m.uncertaintyNote && (
                         <span className="mt-1 block">
                           <strong>Uncertainty:</strong> {m.uncertaintyNote}

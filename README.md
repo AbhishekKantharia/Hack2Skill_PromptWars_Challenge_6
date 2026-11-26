@@ -123,18 +123,20 @@ npm run build
 npm start
 ```
 
-All four checks (`typecheck`, `lint`, 15 tests, production build) pass out of the box.
+All four checks (`typecheck`, `lint`, 22 tests, production build) pass out of the box.
 
 ---
 
 ## Privacy & API Behavior
 
-- Every browser receives a random `breathewise-session-id` in `localStorage`; all client API calls send it as `x-session-id` via `src/lib/client-api.ts`. Invalid or missing IDs get a one-off server-generated ID.
+- Every browser receives a random `breathewise-session-id` in `localStorage`; all client API calls (including city search) send it as `x-session-id` via `src/lib/client-api.ts`. Invalid, missing, or prototype-like IDs are rejected before reaching the store.
 - `GET/PATCH /api/settings`, `GET/POST/DELETE /api/chat`, `POST /api/routine`, `POST /api/calculator`, and `POST /api/community` are session-scoped. Community reports are public; upvotes and challenge joins are deduplicated per session.
-- API inputs are parsed through `src/lib/validation.ts` (types, ranges, city coordinates, alert thresholds, frequencies, categories). Unrecognized values are rejected or ignored, never trusted verbatim.
-- Chat, routine, and community writes are rate-limited to 12 requests per minute per session with a clear `429` message.
+- API bodies are read through a 16 KB stream cap and parsed through `src/lib/validation.ts` (types, ranges, city coordinates, alert thresholds, frequencies, categories, IANA timezones). Unrecognized values are rejected or ignored, never trusted verbatim.
+- Air-quality, settings-write, chat, routine, calculator, and community requests are rate-limited to 12 requests per minute per session (with client IP included in the key) and return `429` with `Retry-After`.
+- Failed live environmental feeds are never presented as live: the API returns a clearly labeled demo payload with `degraded: true` and `liveError`, surfaced as a banner in the UI. Demo preference precedence is explicit request flag → session setting → environment default.
+- Forecast labels are formatted in each city's IANA timezone while upstream Open-Meteo requests are pinned to UTC; cleaner-day windows only use future forecast hours.
 - Local persistence uses `data/local-store.json` (gitignored). Override with `BREATHEWISE_STORE_PATH=/path/to/store.json`; tests use an in-memory store.
-- Supabase personal tables remain service-role only; RLS policies allow anonymous reads of community observations/challenges and anonymous submission of `user_submitted` reports.
+- Supabase personal tables remain service-role only; idempotent RLS policies allow anonymous reads of community observations/challenges and anonymous submission of `user_submitted` reports whose text contains no coordinate-like strings.
 
 ---
 

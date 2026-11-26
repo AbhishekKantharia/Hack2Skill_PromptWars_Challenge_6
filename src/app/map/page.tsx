@@ -23,12 +23,14 @@ export default function LiveMapPage() {
   const [metric, setMetric] = useState<'aqi' | 'pm25' | 'pm10' | 'no2' | 'o3'>('aqi');
   const [globalStations, setGlobalStations] = useState<AirQualityStation[]>([]);
   const [loadingGlobal, setLoadingGlobal] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
 
   useEffect(() => {
     if (scope !== 'global') return;
     let active = true;
     (async () => {
       setLoadingGlobal(true);
+      setGlobalError(null);
       try {
         const res = await fetch(
           `/api/air-quality?multi=true&demo=${settings.forceDemoMode}`,
@@ -38,7 +40,10 @@ export default function LiveMapPage() {
         const data = await res.json();
         if (active) setGlobalStations(data.stations ?? []);
       } catch {
-        if (active) setGlobalStations([]);
+        if (active) {
+          setGlobalStations([]);
+          setGlobalError('Could not load global monitoring nodes. Please retry.');
+        }
       } finally {
         if (active) setLoadingGlobal(false);
       }
@@ -48,10 +53,14 @@ export default function LiveMapPage() {
     };
   }, [scope, settings.forceDemoMode]);
 
-  const stations =
-    scope === 'global' && globalStations.length > 0
-      ? globalStations
-      : airQuality?.stations ?? [];
+  const stations = scope === 'global' ? globalStations : (airQuality?.stations ?? []);
+
+  const pollutantGuidelines: Record<Exclude<typeof metric, 'aqi'>, number> = {
+    pm25: 15,
+    pm10: 45,
+    no2: 25,
+    o3: 100,
+  };
 
   return (
     <div className="space-y-6">
@@ -131,13 +140,22 @@ export default function LiveMapPage() {
               <span className="h-2.5 w-2.5 rounded-full bg-orange-500" /> USG (101–150)
             </span>
             <span className="inline-flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Unhealthy (151+)
+              <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Unhealthy (151–200)
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-violet-600" /> Very Unhealthy (201–300)
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-900" /> Hazardous (301+)
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-slate-500" /> N/A — no reading
             </span>
           </div>
         ) : (
           <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-600 dark:text-slate-300">
             <span className="inline-flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> ≤50% WHO reference
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> ≤50% of WHO {metric.toUpperCase()} ({pollutantGuidelines[metric]} µg/m³)
             </span>
             <span className="inline-flex items-center gap-1">
               <span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> ≤100% reference
@@ -148,6 +166,9 @@ export default function LiveMapPage() {
             <span className="inline-flex items-center gap-1">
               <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> &gt;200% reference
             </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-slate-500" /> N/A — no reading
+            </span>
           </div>
         )}
       </div>
@@ -157,6 +178,11 @@ export default function LiveMapPage() {
         {loadingGlobal && (
           <div className="mb-2 text-xs font-medium text-sky-600 dark:text-sky-400">
             Fetching multi-city readings...
+          </div>
+        )}
+        {scope === 'global' && !loadingGlobal && globalStations.length === 0 && (
+          <div className="mb-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+            {globalError ?? 'No global monitoring nodes are available right now.'}
           </div>
         )}
         <AirMapLeaflet
@@ -192,19 +218,19 @@ export default function LiveMapPage() {
                 <div className="mt-2.5 grid grid-cols-4 gap-1 text-center rounded-lg bg-slate-50 p-2 dark:bg-slate-800/60">
                   <div>
                     <div className="text-[10px] text-slate-500">PM2.5</div>
-                    <div className="font-semibold">{st.pm25}</div>
+                    <div className="font-semibold">{st.pm25 ?? 'N/A'}</div>
                   </div>
                   <div>
                     <div className="text-[10px] text-slate-500">PM10</div>
-                    <div className="font-semibold">{st.pm10}</div>
+                    <div className="font-semibold">{st.pm10 ?? 'N/A'}</div>
                   </div>
                   <div>
                     <div className="text-[10px] text-slate-500">NO₂</div>
-                    <div className="font-semibold">{st.no2}</div>
+                    <div className="font-semibold">{st.no2 ?? 'N/A'}</div>
                   </div>
                   <div>
                     <div className="text-[10px] text-slate-500">O₃</div>
-                    <div className="font-semibold">{st.o3}</div>
+                    <div className="font-semibold">{st.o3 ?? 'N/A'}</div>
                   </div>
                 </div>
               </div>

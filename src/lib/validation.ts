@@ -29,11 +29,30 @@ export async function readJsonObject(
   req: NextRequest,
   maxBytes = 16_000
 ): Promise<Record<string, unknown> | null> {
-  const contentLength = Number(req.headers.get('content-length') ?? '0');
-  if (contentLength > maxBytes) return null;
-  const body: unknown = await req.json();
-  if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
-  return body as Record<string, unknown>;
+  if (!req.body) return null;
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) return null;
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const body: unknown = JSON.parse(new TextDecoder().decode(bytes));
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+    return body as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 }
 
 export function asText(value: unknown, maxLength: number): string | null {
@@ -43,22 +62,57 @@ export function asText(value: unknown, maxLength: number): string | null {
 }
 
 export function asFiniteNumber(value: unknown, min: number, max: number): number | null {
-  const n = typeof value === 'number' ? value : Number(value);
+  if (typeof value !== 'number' && typeof value !== 'string') return null;
+  if (typeof value === 'string' && !/^-?\d+(?:\.\d+)?$/.test(value.trim())) return null;
+  const n = Number(value);
   return Number.isFinite(n) && n >= min && n <= max ? n : null;
+}
+
+export function sanitizePlaceName(value: unknown, maxLength = 80): string | null {
+  const text = asText(value, maxLength * 4);
+  if (!text) return null;
+  const cleaned = text
+    .replace(/[^\p{L}\p{N}\s.,'’()\-/]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength);
+  return cleaned || null;
+}
+
+export function redactCoordinateLikeText(value: unknown, maxLength = 160): string {
+  const text = asText(value, maxLength * 4) ?? '';
+  return text
+    .replace(/\b\d{1,3}\s*°\s*\d{1,2}\s*['′]\s*\d{1,2}(?:\.\d+)?\s*["″]?\s*[NSEW]?\b/gi, '[redacted]')
+    .replace(/\b-?\d{1,3}(?:\.\d{1,6})?\s*[,;]\s*-?\d{1,3}(?:\.\d{1,6})?\b/g, '[redacted]')
+    .replace(/\b-?\d{1,3}(?:\.\d{1,6})?\s+-?\d{1,3}(?:\.\d{1,6})?\b/g, '[redacted]')
+    .replace(/\b-?\d{2,3}\.\d{3,}\b/g, '[redacted]')
+    .replace(/\b\d{1,3}\.\d{2,}\s*°?\s*[NSEW]\b/gi, '[redacted]')
+    .slice(0, maxLength);
+}
+
+function isValidTimezone(value: unknown): string | undefined {
+  const text = asText(value, 64);
+  if (!text) return undefined;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: text });
+    return text;
+  } catch {
+    return undefined;
+  }
 }
 
 export function parseCityLocation(value: unknown): CityLocation | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const raw = value as Record<string, unknown>;
-  const name = asText(raw.name, 80);
+  const name = sanitizePlaceName(raw.name, 80);
   const lat = asFiniteNumber(raw.lat, -90, 90);
   const lon = asFiniteNumber(raw.lon, -180, 180);
   if (!name || lat === null || lon === null) return null;
   return {
     name,
-    country: asText(raw.country, 80) ?? '',
-    region: asText(raw.region, 80) ?? undefined,
-    timezone: asText(raw.timezone, 64) ?? undefined,
+    country: sanitizePlaceName(raw.country, 80) ?? '',
+    region: sanitizePlaceName(raw.region, 80) ?? undefined,
+    timezone: isValidTimezone(raw.timezone),
     lat,
     lon,
   };
@@ -121,6 +175,13 @@ export function parseSettingsPatch(
         (next as Record<string, boolean>)[key] = alerts[key] as boolean;
       }
     }
+    const high = (next as Record<string, number>).highAqiThreshold;
+    const severe = (next as Record<string, number>).severeAqiThreshold;
+    const ventilation = (next as Record<string, number>).favorableVentilationMaxAqi;
+    if (typeof high === 'number' && typeof severe === 'number' && severe <= high) return null;
+    if (typeof high === 'number' && typeof ventilation === 'number' && ventilation >= high) {
+      return null;
+    }
     if (Object.keys(next).length) {
       patch.alerts = next as UserSettings['alerts'];
     }
@@ -151,9 +212,9 @@ export function parseObservationInput(raw: Record<string, unknown>): {
   severity: (typeof SEVERITIES)[number];
   description: string;
 } | null {
-  const neighborhood = asText(raw.neighborhood, 80);
-  const city = asText(raw.city, 60);
-  const description = asText(raw.description, 320);
+  const neighborhood = redactCoordinateLikeText(raw.neighborhood, 80) || null;
+  const city = sanitizePlaceName(raw.city, 60);
+  const description = redactCoordinateLikeText(raw.description, 320) || null;
   const category = CATEGORIES.includes(raw.category as (typeof CATEGORIES)[number])
     ? (raw.category as (typeof CATEGORIES)[number])
     : null;

@@ -38,7 +38,7 @@ export default function CalculatorAndSimulatorPage() {
     waste_compost_no_burn: 2,
   });
   const [saving, setSaving] = useState(false);
-  const [savedNotice, setSavedNotice] = useState<string | null>(null);
+  const [savedNotice, setSavedNotice] = useState<{ message: string; ok: boolean } | null>(null);
 
   // What-If Pollution Simulator state
   const [selectedScenarioId, setSelectedScenarioId] = useState(SIMULATOR_SCENARIOS[0].id);
@@ -71,10 +71,11 @@ export default function CalculatorAndSimulatorPage() {
         body: JSON.stringify({ frequencies }),
       });
       const data = await res.json().catch(() => null);
-      setSavedNotice(res.ok ? 'Weekly action plan saved!' : data?.error ?? 'Could not save your plan.');
+      const message = res.ok ? 'Weekly action plan saved!' : data?.error ?? 'Could not save your plan.';
+      setSavedNotice({ message, ok: res.ok });
       setTimeout(() => setSavedNotice(null), 3000);
     } catch {
-      setSavedNotice('Network error. Your plan was not saved.');
+      setSavedNotice({ message: 'Network error. Your plan was not saved.', ok: false });
       setTimeout(() => setSavedNotice(null), 3000);
     } finally {
       setSaving(false);
@@ -114,8 +115,14 @@ export default function CalculatorAndSimulatorPage() {
         </div>
 
         {savedNotice && (
-          <div className="rounded-xl bg-emerald-500/15 px-4 py-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-            {savedNotice}
+          <div
+            className={`rounded-xl px-4 py-2 text-xs font-semibold ${
+              savedNotice.ok
+                ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300'
+                : 'bg-rose-500/15 text-rose-800 dark:text-rose-300'
+            }`}
+          >
+            {savedNotice.message}
           </div>
         )}
 
@@ -355,7 +362,7 @@ export default function CalculatorAndSimulatorPage() {
 
           <div className="rounded-2xl border border-sky-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
             <div className="text-xs font-semibold text-slate-500">
-              Estimated Sector Emission Reduction
+              Sector-Activity Change Proxy (Upper Bound)
             </div>
             <div className="mt-1 text-3xl font-black text-sky-600 dark:text-sky-400">
               ~{simResult.localSectorEmissionDropPct}%

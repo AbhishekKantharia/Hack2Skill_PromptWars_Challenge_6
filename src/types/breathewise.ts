@@ -77,6 +77,8 @@ export interface AirQualityPayload {
   sourceUrl: string;
   timestamp: string;
   uncertaintyNote: string;
+  degraded?: boolean;
+  liveError?: string;
 }
 
 export type AlertSeverity = 'info' | 'warning' | 'critical' | 'favorable';

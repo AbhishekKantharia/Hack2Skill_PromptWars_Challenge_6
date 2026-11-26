@@ -7,6 +7,12 @@ import type {
   SensitivityGroup,
 } from '@/types/breathewise';
 import { SUSTAINABILITY_ACTIONS } from '@/lib/calculations';
+import {
+  getPlanningThreshold,
+  getSensitiveMargin,
+  getVentilationThreshold,
+} from '@/lib/thresholds';
+import { hourFromLabel } from '@/lib/time';
 
 export interface RoutinePreferencesInput {
   sensitivityGroup: SensitivityGroup;
@@ -16,26 +22,6 @@ export interface RoutinePreferencesInput {
 }
 
 type DayPart = 'Morning' | 'Afternoon' | 'Evening';
-
-function getGroupThresholdOffset(group: SensitivityGroup): number {
-  switch (group) {
-    case 'children':
-    case 'respiratory':
-    case 'older_adults':
-      return -25;
-    case 'outdoor_athletes':
-      return -15;
-    default:
-      return 0;
-  }
-}
-
-function hourFromLabel(label: string): number | null {
-  const match = /^(\d{1,2}):/.exec(label);
-  if (!match) return null;
-  const hour = Number(match[1]);
-  return Number.isFinite(hour) && hour >= 0 && hour <= 23 ? hour : null;
-}
 
 function bucketForHour(hour: number): DayPart | null {
   if (hour >= 6 && hour < 12) return 'Morning';
@@ -52,7 +38,9 @@ function averageAqi(points: HourlyAirPoint[], fallback: number): number {
 
 function windowLabel(points: HourlyAirPoint[], fallback: string): string {
   if (!points.length) return fallback;
-  const sorted = [...points].sort((a, b) => a.label.localeCompare(b.label));
+  const sorted = [...points].sort(
+    (a, b) => (hourFromLabel(a.label) ?? 0) - (hourFromLabel(b.label) ?? 0)
+  );
   return `${sorted[0].label} – ${sorted[sorted.length - 1].label}`;
 }
 
@@ -64,9 +52,8 @@ export function generateCleanerDayRoutine(
   aq: AirQualityPayload,
   prefs: RoutinePreferencesInput
 ): DailyRoutineResponse {
-  const offset = getGroupThresholdOffset(prefs.sensitivityGroup);
-  const sensitiveMargin = Math.abs(offset);
-  const highThreshold = Math.max(50, 100 + offset);
+  const highThreshold = getPlanningThreshold(prefs.sensitivityGroup);
+  const sensitiveMargin = getSensitiveMargin(prefs.sensitivityGroup);
   const effectiveAqi = Math.max(0, aq.aqi + sensitiveMargin);
 
   const future = aq.hourly.filter((point) => point.isForecast);
@@ -75,7 +62,7 @@ export function generateCleanerDayRoutine(
     Afternoon: [],
     Evening: [],
   };
-  for (const point of aq.hourly) {
+  for (const point of future) {
     const hour = hourFromLabel(point.label);
     if (hour === null) continue;
     const bucket = bucketForHour(hour);
@@ -96,7 +83,8 @@ export function generateCleanerDayRoutine(
 
   const isMorningHigh = morningAqi >= highThreshold;
   const isEveningHigh = eveningAqi >= highThreshold;
-  const isAfternoonClean = afternoonAqi <= highThreshold - 15;
+  const ventilationThreshold = getVentilationThreshold(prefs.sensitivityGroup);
+  const isAfternoonClean = afternoonAqi <= ventilationThreshold;
   const items: RoutineItem[] = [];
 
   items.push({
@@ -194,7 +182,7 @@ export function generateCleanerDayRoutine(
       'Dilutes indoor CO₂ and cooking pollutants without assuming outdoor air is always cleaner.',
     estimatedCost: '$0 (Free)',
     environmentalImpact: 'Natural ventilation can reduce mechanical cooling demand when temperatures are mild.',
-    caveat: 'Skip open-window ventilation if visible smoke, strong traffic odor, or AQI above 100 is present.',
+    caveat: `Skip open-window ventilation if visible smoke, strong traffic odor, or AQI above ~${ventilationThreshold} is present for your ${prefs.sensitivityGroup.replace('_', ' ')} profile.`,
     forecastAqi: afternoonAqi,
   });
 
@@ -255,9 +243,9 @@ export function generateCleanerDayRoutine(
         : `Cleanest upcoming hour is ${cleanestHour.label} (~${cleanestHour.aqi} AQI), still above your ${highThreshold} AQI planning threshold`
       : 'No future hourly forecast available — recheck later',
     bestVentilationWindow: cleanestHour
-      ? cleanestHour.aqi <= Math.max(50, highThreshold - 15)
+      ? cleanestHour.aqi <= ventilationThreshold
         ? `15–20 min cross-ventilation near ${cleanestHour.label} (~${cleanestHour.aqi} AQI)`
-        : `Hold off on open-window ventilation until AQI drops below ~${Math.max(50, highThreshold - 15)}`
+        : `Hold off on open-window ventilation until AQI drops below ~${ventilationThreshold}`
       : 'No future hourly forecast available — recheck later',
     items,
     safetyDisclaimer:

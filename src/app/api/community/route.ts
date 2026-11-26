@@ -5,8 +5,8 @@ import {
   getCommunityData,
   upvoteObservation,
 } from '@/lib/store';
-import { getSessionId } from '@/lib/request-context';
-import { allowRequest } from '@/lib/rate-limit';
+import { getSessionId, rateLimitKey } from '@/lib/request-context';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { parseObservationInput, readJsonObject, asText } from '@/lib/validation';
 
 export async function GET(req: NextRequest) {
@@ -17,10 +17,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const sessionId = getSessionId(req);
-    if (!allowRequest(`community:${sessionId}`)) {
+    const limit = checkRateLimit(rateLimitKey(sessionId, req, 'community'));
+    if (!limit.allowed) {
       return NextResponse.json(
         { error: 'Too many requests. Please wait a minute and try again.' },
-        { status: 429 }
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
       );
     }
     const body = await readJsonObject(req);

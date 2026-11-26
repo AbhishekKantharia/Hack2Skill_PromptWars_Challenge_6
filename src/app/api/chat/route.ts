@@ -8,8 +8,9 @@ import {
   getChatHistory,
   getSettings,
 } from '@/lib/store';
-import { getSessionId } from '@/lib/request-context';
-import { allowRequest } from '@/lib/rate-limit';
+import { getSessionId, rateLimitKey } from '@/lib/request-context';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { resolveDemoMode } from '@/lib/demo-mode';
 import {
   asText,
   parseCityLocation,
@@ -31,10 +32,11 @@ export async function DELETE(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const sessionId = getSessionId(req);
-    if (!allowRequest(`chat:${sessionId}`)) {
+    const limit = checkRateLimit(rateLimitKey(sessionId, req, 'chat'));
+    if (!limit.allowed) {
       return NextResponse.json(
         { error: 'Too many requests. Please wait a minute and try again.' },
-        { status: 429 }
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
       );
     }
 
@@ -50,8 +52,10 @@ export async function POST(req: NextRequest) {
     const settings = await getSettings(sessionId);
     const location =
       parseCityLocation(body?.location) ?? settings.defaultCity;
-    const forceDemo =
-      typeof body?.forceDemoMode === 'boolean' ? body.forceDemoMode : settings.forceDemoMode;
+    const forceDemo = resolveDemoMode(
+      typeof body?.forceDemoMode === 'boolean' ? body.forceDemoMode : undefined,
+      settings.forceDemoMode
+    );
     const sensitivityGroup =
       parseSensitivityGroup(body?.sensitivityGroup) ?? settings.sensitivityGroup;
 

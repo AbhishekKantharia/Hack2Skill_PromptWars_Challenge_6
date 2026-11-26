@@ -2,17 +2,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAirQualityForLocation, getMultiCitySnapshots } from '@/lib/air-quality-service';
 import { evaluateIntelligentAlerts } from '@/lib/aqi';
 import { getSettings } from '@/lib/store';
-import { getSessionId } from '@/lib/request-context';
+import { getSessionId, rateLimitKey } from '@/lib/request-context';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { resolveDemoMode } from '@/lib/demo-mode';
 import { asText, parseCityLocation } from '@/lib/validation';
 import { FEATURED_CITIES } from '@/lib/demo-data';
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const settings = await getSettings(getSessionId(req));
+    const sessionId = getSessionId(req);
+    const limit = checkRateLimit(rateLimitKey(sessionId, req, 'air-quality'));
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait a minute and try again.' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
+      );
+    }
+    const settings = await getSettings(sessionId);
     const demoParam = searchParams.get('demo');
-    const forceDemo =
-      demoParam === 'true' ? true : demoParam === 'false' ? false : settings.forceDemoMode;
+    const explicitDemo = demoParam === 'true' ? true : demoParam === 'false' ? false : undefined;
+    const forceDemo = resolveDemoMode(explicitDemo, settings.forceDemoMode);
 
     if (searchParams.get('multi') === 'true') {
       const stations = await getMultiCitySnapshots(forceDemo);

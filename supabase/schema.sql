@@ -112,10 +112,12 @@ alter table community_challenges enable row level security;
 
 -- Public community feed: anyone may read reports, anyone may submit a
 -- neighborhood-level user report. Personal tables above remain service-role only.
+drop policy if exists "Community observations are readable" on community_observations;
 create policy "Community observations are readable"
   on community_observations for select to anon, authenticated
   using (true);
 
+drop policy if exists "Users may submit neighborhood reports" on community_observations;
 create policy "Users may submit neighborhood reports"
   on community_observations for insert to anon, authenticated
   with check (
@@ -123,8 +125,13 @@ create policy "Users may submit neighborhood reports"
     and char_length(neighborhood) between 1 and 80
     and char_length(description) between 1 and 320
     and upvotes between 0 and 1
+    and neighborhood !~* '[0-9]{1,3}\.[0-9]{2,}'
+    and description !~* '[0-9]{1,3}\.[0-9]{2,}'
+    and position('°' in neighborhood) = 0
+    and position('°' in description) = 0
   );
 
+drop policy if exists "Community challenges are readable" on community_challenges;
 create policy "Community challenges are readable"
   on community_challenges for select to anon, authenticated
   using (true);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Bell, Check, FlaskConical, Lock, Moon, Settings, Sun } from 'lucide-react';
 import { useBreatheWise } from '@/components/BreatheWiseProvider';
 import { FEATURED_CITIES } from '@/lib/demo-data';
@@ -12,18 +12,33 @@ import type {
 
 export default function SettingsPage() {
   const { settings, updateSettings, toggleTheme } = useBreatheWise();
-  const [savedToast, setSavedToast] = useState<string | null>(null);
+  const [savedToast, setSavedToast] = useState<{ message: string; ok: boolean } | null>(null);
   const [draftAlerts, setDraftAlerts] = useState<AlertPreferences | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
 
-  async function savePatch(
-    patch: Parameters<typeof updateSettings>[0],
-    message = 'Settings Saved'
-  ) {
-    const ok = await updateSettings(patch);
-    setSavedToast(ok ? message : 'Could not save settings. Please try again.');
-    setTimeout(() => setSavedToast(null), 3000);
-  }
+  const savePatch = useCallback(
+    async (
+      patch: Parameters<typeof updateSettings>[0],
+      message = 'Settings Saved',
+      clearDraft = false
+    ) => {
+      const ok = await updateSettings(patch);
+      setSavedToast(ok ? { message, ok } : { message: 'Could not save settings. Please try again.', ok });
+      setTimeout(() => setSavedToast(null), 3000);
+      if (ok && clearDraft) setDraftAlerts(null);
+    },
+    [updateSettings]
+  );
+
+  const commitAlerts = useCallback(() => {
+    if (draftAlerts) void savePatch({ alerts: draftAlerts }, 'Alert preferences saved', true);
+  }, [draftAlerts, savePatch]);
+
+  useEffect(() => {
+    if (!draftAlerts) return;
+    const timer = setTimeout(commitAlerts, 400);
+    return () => clearTimeout(timer);
+  }, [draftAlerts, commitAlerts]);
 
   const alerts = draftAlerts ?? settings.alerts;
   const isKnownCity = FEATURED_CITIES.some(
@@ -31,16 +46,16 @@ export default function SettingsPage() {
   );
 
   function setAlertValue(key: keyof AlertPreferences, value: number | boolean) {
-    setDraftAlerts((prev) => ({
-      ...(prev ?? settings.alerts),
-      [key]: value,
-    }));
-  }
-
-  function commitAlerts() {
-    if (!draftAlerts) return;
-    void savePatch({ alerts: draftAlerts }, 'Alert preferences saved');
-    setDraftAlerts(null);
+    setDraftAlerts((prev) => {
+      const next = { ...(prev ?? settings.alerts), [key]: value };
+      if (key === 'highAqiThreshold' && typeof value === 'number') {
+        if (next.severeAqiThreshold <= value) next.severeAqiThreshold = value + 1;
+        if (next.favorableVentilationMaxAqi >= value) {
+          next.favorableVentilationMaxAqi = Math.max(10, value - 1);
+        }
+      }
+      return next;
+    });
   }
 
   return (
@@ -57,9 +72,15 @@ export default function SettingsPage() {
         </div>
 
         {savedToast && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-            <Check className="h-3.5 w-3.5" />
-            {savedToast}
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
+              savedToast.ok
+                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                : 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+            }`}
+          >
+            {savedToast.ok ? <Check className="h-3.5 w-3.5" /> : <Bell className="h-3.5 w-3.5" />}
+            {savedToast.message}
           </span>
         )}
       </div>
@@ -245,8 +266,6 @@ export default function SettingsPage() {
               max={180}
               value={alerts.highAqiThreshold}
               onChange={(e) => setAlertValue('highAqiThreshold', Number(e.target.value))}
-              onPointerUp={commitAlerts}
-              onKeyUp={commitAlerts}
               className="w-full accent-emerald-600"
             />
           </div>
@@ -257,12 +276,10 @@ export default function SettingsPage() {
             </label>
             <input
               type="range"
-              min={150}
+              min={Math.max(150, alerts.highAqiThreshold + 1)}
               max={300}
-              value={alerts.severeAqiThreshold}
+              value={Math.max(alerts.severeAqiThreshold, alerts.highAqiThreshold + 1)}
               onChange={(e) => setAlertValue('severeAqiThreshold', Number(e.target.value))}
-              onPointerUp={commitAlerts}
-              onKeyUp={commitAlerts}
               className="w-full accent-rose-600"
             />
           </div>
@@ -277,8 +294,6 @@ export default function SettingsPage() {
               max={80}
               value={alerts.spikeDeltaThreshold}
               onChange={(e) => setAlertValue('spikeDeltaThreshold', Number(e.target.value))}
-              onPointerUp={commitAlerts}
-              onKeyUp={commitAlerts}
               className="w-full accent-amber-500"
             />
           </div>
@@ -293,8 +308,6 @@ export default function SettingsPage() {
               max={100}
               value={alerts.favorableVentilationMaxAqi}
               onChange={(e) => setAlertValue('favorableVentilationMaxAqi', Number(e.target.value))}
-              onPointerUp={commitAlerts}
-              onKeyUp={commitAlerts}
               className="w-full accent-sky-600"
             />
           </div>

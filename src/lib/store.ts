@@ -14,6 +14,8 @@ import {
   INITIAL_COMMUNITY_CHALLENGES,
   INITIAL_COMMUNITY_OBSERVATIONS,
 } from '@/lib/demo-data';
+import { isSafeSessionId } from '@/lib/request-context';
+import { redactCoordinateLikeText } from '@/lib/validation';
 
 interface SessionState {
   settings: UserSettings;
@@ -44,7 +46,7 @@ function getDefaultSession(): SessionState {
     chatHistory: [],
     joinedChallengeIds: [],
     upvotedObservationIds: [],
-    challengeActionCounts: {},
+    challengeActionCounts: Object.create(null) as Record<string, number>,
     savedImpactFrequencies: {
       public_transit: 3,
       carpooling: 2,
@@ -56,31 +58,14 @@ function getDefaultSession(): SessionState {
   };
 }
 
-function getDefaultDb(): LocalDatabase {
-  return {
-    sessions: {},
-    observations: structuredClone(INITIAL_COMMUNITY_OBSERVATIONS),
-  };
+function emptySessions(): Record<string, SessionState> {
+  return Object.create(null) as Record<string, SessionState>;
 }
 
-function hydrateSession(raw: Partial<SessionState> | undefined): SessionState {
-  const defaults = getDefaultSession();
-  if (!raw) return defaults;
+function getDefaultDb(): LocalDatabase {
   return {
-    settings: {
-      ...defaults.settings,
-      ...(raw.settings ?? {}),
-      defaultCity: (raw.settings?.defaultCity ?? defaults.settings.defaultCity) as CityLocation,
-      alerts: {
-        ...defaults.settings.alerts,
-        ...(raw.settings?.alerts ?? {}),
-      },
-    },
-    chatHistory: raw.chatHistory ?? [],
-    joinedChallengeIds: raw.joinedChallengeIds ?? [],
-    upvotedObservationIds: raw.upvotedObservationIds ?? [],
-    challengeActionCounts: raw.challengeActionCounts ?? {},
-    savedImpactFrequencies: raw.savedImpactFrequencies ?? defaults.savedImpactFrequencies,
+    sessions: emptySessions(),
+    observations: structuredClone(INITIAL_COMMUNITY_OBSERVATIONS),
   };
 }
 
@@ -99,7 +84,12 @@ function readLocalDb(): LocalDatabase {
       savedImpactFrequencies?: Record<string, number>;
     };
     const defaults = getDefaultDb();
-    const sessions = parsed.sessions ?? {};
+    const sessions = emptySessions();
+    for (const [key, value] of Object.entries(parsed.sessions ?? {})) {
+      if (isSafeSessionId(key)) {
+        sessions[key] = hydrateSession(value as Partial<SessionState>);
+      }
+    }
     if (!Object.keys(sessions).length && parsed.settings) {
       sessions[DEFAULT_SESSION] = hydrateSession({
         settings: parsed.settings,
@@ -134,8 +124,38 @@ async function writeLocalDb(db: LocalDatabase): Promise<void> {
 }
 
 function getSession(db: LocalDatabase, sessionId: string): SessionState {
-  db.sessions[sessionId] ??= getDefaultSession();
-  return db.sessions[sessionId];
+  const key = isSafeSessionId(sessionId) ? sessionId : DEFAULT_SESSION;
+  if (!Object.prototype.hasOwnProperty.call(db.sessions, key)) {
+    db.sessions[key] = getDefaultSession();
+  }
+  return db.sessions[key];
+}
+
+function hydrateSession(raw: Partial<SessionState> | undefined): SessionState {
+  const defaults = getDefaultSession();
+  if (!raw) return defaults;
+  const challengeActionCounts = Object.create(null) as Record<string, number>;
+  for (const [key, value] of Object.entries(raw.challengeActionCounts ?? {})) {
+    if (isSafeSessionId(key) && typeof value === 'number') challengeActionCounts[key] = value;
+  }
+  return {
+    settings: {
+      ...defaults.settings,
+      ...(raw.settings ?? {}),
+      defaultCity: (raw.settings?.defaultCity ?? defaults.settings.defaultCity) as CityLocation,
+      alerts: {
+        ...defaults.settings.alerts,
+        ...(raw.settings?.alerts ?? {}),
+      },
+    },
+    chatHistory: Array.isArray(raw.chatHistory) ? raw.chatHistory : [],
+    joinedChallengeIds: Array.isArray(raw.joinedChallengeIds) ? raw.joinedChallengeIds : [],
+    upvotedObservationIds: Array.isArray(raw.upvotedObservationIds)
+      ? raw.upvotedObservationIds
+      : [],
+    challengeActionCounts,
+    savedImpactFrequencies: raw.savedImpactFrequencies ?? defaults.savedImpactFrequencies,
+  };
 }
 
 function getSupabaseClient() {
@@ -144,6 +164,46 @@ function getSupabaseClient() {
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return null;
   return createClient(url, key);
+}
+
+function aggregateChallenges(
+  db: LocalDatabase,
+  sessionId: string
+): CommunityChallenge[] {
+  const participants = new Map<string, number>();
+  const actions = new Map<string, number>();
+  for (const session of Object.values(db.sessions)) {
+    for (const id of session.joinedChallengeIds) {
+      participants.set(id, (participants.get(id) ?? 0) + 1);
+    }
+    for (const [id, count] of Object.entries(session.challengeActionCounts ?? {})) {
+      if (typeof count === 'number' && Number.isFinite(count)) {
+        actions.set(id, (actions.get(id) ?? 0) + count);
+      }
+    }
+  }
+  const session = getSession(db, sessionId);
+  return structuredClone(INITIAL_COMMUNITY_CHALLENGES).map((challenge) => ({
+    ...challenge,
+    participantsCount: challenge.participantsCount + (participants.get(challenge.id) ?? 0),
+    currentActions: challenge.currentActions + (actions.get(challenge.id) ?? 0),
+    joined: session.joinedChallengeIds.includes(challenge.id),
+  }));
+}
+
+function dedupeObservations(observations: CommunityObservation[]): CommunityObservation[] {
+  const seenIds = new Set<string>();
+  const seenContent = new Set<string>();
+  return observations.filter((observation) => {
+    const content = `${observation.neighborhood}|${observation.city}|${observation.description}`
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (seenIds.has(observation.id) || seenContent.has(content)) return false;
+    seenIds.add(observation.id);
+    seenContent.add(content);
+    return true;
+  });
 }
 
 export async function getSettings(sessionId = DEFAULT_SESSION): Promise<UserSettings> {
@@ -185,20 +245,23 @@ export async function getCommunityData(sessionId = DEFAULT_SESSION): Promise<{
         .order('created_at', { ascending: false })
         .limit(30);
       if (!error && data && data.length > 0) {
-        observations = [
-          ...data.map((r) => ({
-            id: String(r.id),
-            neighborhood: String(r.neighborhood),
-            city: String(r.city),
+        const remote = data.map((r) => {
+          const id = String(r.id);
+          const locallyConfirmed = session.upvotedObservationIds.includes(id);
+          const hasLocalCopy = db.observations.some((o) => o.id === id);
+          return {
+            id,
+            neighborhood: redactCoordinateLikeText(r.neighborhood, 80) || 'Local Neighborhood',
+            city: redactCoordinateLikeText(r.city, 60) || 'Local Area',
             category: r.category as CommunityObservation['category'],
             severity: r.severity as CommunityObservation['severity'],
-            description: String(r.description),
+            description: redactCoordinateLikeText(r.description, 320),
             verificationType: 'user_submitted' as const,
-            upvotes: Number(r.upvotes ?? 0),
+            upvotes: Number(r.upvotes ?? 0) + (locallyConfirmed && !hasLocalCopy ? 1 : 0),
             createdAt: String(r.created_at),
-          })),
-          ...observations,
-        ];
+          };
+        });
+        observations = dedupeObservations([...remote, ...observations]);
         storageBackend = 'supabase';
       }
     } catch {
@@ -206,13 +269,10 @@ export async function getCommunityData(sessionId = DEFAULT_SESSION): Promise<{
     }
   }
 
-  const challenges = structuredClone(INITIAL_COMMUNITY_CHALLENGES).map((c) => ({
-    ...c,
-    joined: session.joinedChallengeIds.includes(c.id),
-  }));
+  const challenges = aggregateChallenges(db, sessionId);
 
   return {
-    observations: observations.slice(0, 50),
+    observations: dedupeObservations(observations).slice(0, 50),
     challenges,
     storageBackend,
     upvotedObservationIds: session.upvotedObservationIds,
@@ -226,20 +286,13 @@ export async function addCommunityObservation(input: {
   severity: CommunityObservation['severity'];
   description: string;
 }): Promise<CommunityObservation> {
-  const redact = (value: string) =>
-    value
-      .replace(/\b-?\d{1,3}\.\d{3,}\b/g, '[redacted]')
-      .replace(/\b\d{1,3}(?:[.,]\d{1,3}){2,}\b/g, '[redacted]')
-      .trim()
-      .slice(0, 160);
-
   const newObs: CommunityObservation = {
     id: `obs-${randomUUID()}`,
-    neighborhood: redact(input.neighborhood) || 'Local Neighborhood',
-    city: redact(input.city) || 'Local Area',
+    neighborhood: redactCoordinateLikeText(input.neighborhood, 80) || 'Local Neighborhood',
+    city: redactCoordinateLikeText(input.city, 60) || 'Local Area',
     category: input.category,
     severity: input.severity,
-    description: redact(input.description),
+    description: redactCoordinateLikeText(input.description, 320),
     verificationType: 'user_submitted',
     upvotes: 1,
     createdAt: new Date().toISOString(),
@@ -302,19 +355,8 @@ export async function actOnChallenge(
     if (!alreadyJoined) session.joinedChallengeIds.push(challengeId);
   }
 
-  const challenges = structuredClone(INITIAL_COMMUNITY_CHALLENGES).map((c) => ({
-    ...c,
-    participantsCount:
-      c.id === challengeId && (!alreadyJoined || (action === 'log_action' && count === 0))
-        ? c.participantsCount + 1
-        : c.participantsCount,
-    currentActions:
-      c.id === challengeId && action === 'log_action' && count < 10
-        ? c.currentActions + 1
-        : c.currentActions,
-    joined: session.joinedChallengeIds.includes(c.id),
-  }));
-
+  await writeLocalDb(db);
+  const challenges = aggregateChallenges(db, sessionId);
   return { challenges, alreadyJoined };
 }
 

@@ -84,7 +84,11 @@ export default function CommunityPage() {
         flash(data?.error ?? 'Could not publish your report.');
         return;
       }
-      setObservations((prev) => [data.observation, ...prev]);
+      const refresh = await apiFetch('/api/community', { cache: 'no-store' });
+      if (refresh.ok) {
+        const latest = await refresh.json().catch(() => null);
+        if (latest?.observations) setObservations(latest.observations);
+      }
       setNeighborhood('');
       setDescription('');
       flash('Observation published as a neighborhood-level user report.');

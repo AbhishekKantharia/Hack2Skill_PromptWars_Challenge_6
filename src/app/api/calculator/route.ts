@@ -6,7 +6,8 @@ import {
   SUSTAINABILITY_ACTIONS,
 } from '@/lib/calculations';
 import { getSavedImpactFrequencies, saveImpactFrequencies } from '@/lib/store';
-import { getSessionId } from '@/lib/request-context';
+import { getSessionId, rateLimitKey } from '@/lib/request-context';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { asFiniteNumber, parseFrequencies, readJsonObject } from '@/lib/validation';
 
 export async function GET(req: NextRequest) {
@@ -24,6 +25,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const sessionId = getSessionId(req);
+    const limit = checkRateLimit(rateLimitKey(sessionId, req, 'calculator-write'));
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait a minute and try again.' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
+      );
+    }
     const body = (await readJsonObject(req)) ?? {};
 
     if (body.type === 'simulate') {

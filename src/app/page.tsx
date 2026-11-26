@@ -41,6 +41,19 @@ export default function DashboardPage() {
     );
   }
 
+  const errorBanner = aqError ? (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-100">
+      <span>{aqError}</span>
+      <button
+        type="button"
+        onClick={() => void refreshAirQuality()}
+        className="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
+      >
+        Retry Connection
+      </button>
+    </div>
+  ) : null;
+
   if (aqError && !airQuality) {
     return (
       <div className="rounded-2xl border border-rose-300 bg-rose-50 p-6 text-rose-900 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-100">
@@ -121,6 +134,12 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
+      {errorBanner}
+      {airQuality.degraded && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+          <strong>Degraded feed:</strong> {airQuality.liveError ?? 'Live data unavailable.'} Values below are labeled Demo Mode.
+        </div>
+      )}
       {/* Quick City Switcher Pills */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>

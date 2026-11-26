@@ -44,6 +44,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const {
     settings,
+    activeCity,
     airQuality,
     loadingAq,
     refreshAirQuality,
@@ -51,7 +52,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     toggleDemoMode,
   } = useBreatheWise();
 
-  const isDemo = airQuality?.dataMode === 'demo' || settings.forceDemoMode;
+  const isDemo = airQuality?.dataMode === 'demo';
+  const degradedLive = isDemo && !settings.forceDemoMode;
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
@@ -108,11 +110,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </p>
             <button
               type="button"
-              onClick={() => void toggleDemoMode()}
+              onClick={() => {
+                if (degradedLive) void refreshAirQuality(activeCity, false);
+                else void toggleDemoMode();
+              }}
               className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700 shadow-xs transition hover:bg-emerald-50 dark:bg-slate-900 dark:text-emerald-300"
             >
               <FlaskConical className="h-3.5 w-3.5" />
-              {settings.forceDemoMode ? 'Switch to Live API' : 'Activate Demo Mode'}
+              {degradedLive
+                ? 'Retry Live Feed'
+                : settings.forceDemoMode || isDemo
+                  ? 'Switch to Live API'
+                  : 'Activate Demo Mode'}
             </button>
           </div>
         </div>

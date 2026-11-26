@@ -6,6 +6,7 @@ import type {
   UserSettings,
 } from '@/types/breathewise';
 import { determineDominantPollutant, getAqiMeta } from '@/lib/aqi';
+import { formatLocalHour, hourFromLabel } from '@/lib/time';
 
 export const FEATURED_CITIES: CityLocation[] = [
   { name: 'New Delhi', country: 'India', region: 'Delhi NCR', lat: 28.6139, lon: 77.209, timezone: 'Asia/Kolkata' },
@@ -151,7 +152,8 @@ export function buildDemoAirQualityPayload(city: CityLocation): AirQualityPayloa
   const hourly = Array.from({ length: 24 }, (_, idx) => {
     const offset = idx - 8; // 8 past hours + 16 forecast hours
     const dt = new Date(now.getTime() + offset * 3600 * 1000);
-    const hourOfDay = dt.getHours();
+    const label = formatLocalHour(dt.toISOString(), city.timezone);
+    const hourOfDay = hourFromLabel(label) ?? 12;
     // Realistic diurnal urban traffic + boundary layer curve (morning/evening peaks, midday dip)
     const diurnalFactor =
       hourOfDay >= 7 && hourOfDay <= 10
@@ -170,7 +172,7 @@ export function buildDemoAirQualityPayload(city: CityLocation): AirQualityPayloa
 
     return {
       time: dt.toISOString(),
-      label: dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      label,
       aqi,
       pm25,
       pm10,

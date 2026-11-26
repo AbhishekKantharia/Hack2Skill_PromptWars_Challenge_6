@@ -13,14 +13,26 @@ import { buildDemoAirQualityPayload, DEFAULT_USER_SETTINGS, FEATURED_CITIES } fr
 import { generateCleanerDayRoutine } from '@/lib/routine-engine';
 import { generateAssistantReply } from '@/lib/ai-assistant';
 import {
+  actOnChallenge,
   addCommunityObservation,
   getChatHistory,
+  getCommunityData,
   getSettings,
   upvoteObservation,
   updateSettings,
 } from '@/lib/store';
-import { parseFrequencies, parseSettingsPatch } from '@/lib/validation';
+import {
+  asFiniteNumber,
+  parseFrequencies,
+  parseObservationInput,
+  parseSettingsPatch,
+  redactCoordinateLikeText,
+} from '@/lib/validation';
 import { SUSTAINABILITY_ACTIONS } from '@/lib/calculations';
+import { getSessionId, isSafeSessionId } from '@/lib/request-context';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { resolveDemoMode } from '@/lib/demo-mode';
+import { formatLocalHour } from '@/lib/time';
 
 describe('AQI and Alert Engine', () => {
   it('computes accurate US EPA AQI from PM2.5 breakpoints', () => {
@@ -146,7 +158,11 @@ describe('My Cleaner Day Routine & Grounded AI Safety', () => {
       plannedActivities: ['outdoor_exercise'],
       commuteMode: 'transit',
     });
+    const futureLabels = payload.hourly.filter((h) => h.isForecast).map((h) => h.label);
     expect(routine.bestOutdoorWindow).not.toContain('5 AQI');
+    for (const item of routine.items.filter((i) => i.id !== 'evening-reflection')) {
+      expect(futureLabels.some((label) => item.timeWindow.includes(label))).toBe(true);
+    }
   });
 });
 
@@ -187,5 +203,73 @@ describe('Privacy, validation, and transparency', () => {
     const sim = evaluateSimulatorScenario('cleaner_cooking', 30);
     expect(sim.localSectorEmissionDropPct).toBe(30);
     expect(sim.proxyNote).toContain('not a measured emission inventory change');
+  });
+
+  it('rejects prototype-like session IDs before they reach the store', () => {
+    const req = {
+      headers: { get: (name: string) => (name === 'x-session-id' ? '__proto__' : null) },
+    } as never;
+    const id = getSessionId(req);
+    expect(id).not.toBe('__proto__');
+    expect(isSafeSessionId('constructor')).toBe(false);
+    expect(isSafeSessionId('valid-session-123')).toBe(true);
+  });
+
+  it('redacts common coordinate formats and rejects unsafe numeric coercion', () => {
+    expect(redactCoordinateLikeText('Near 28.61 77.20 Market')).not.toContain('28.61');
+    expect(redactCoordinateLikeText(`28°36'50"N 77°12'34"E`)).toBe('[redacted] [redacted]');
+    expect(asFiniteNumber(null, 0, 10)).toBeNull();
+    expect(asFiniteNumber('', 0, 10)).toBeNull();
+    expect(asFiniteNumber(true, 0, 10)).toBeNull();
+    expect(asFiniteNumber('7', 0, 10)).toBe(7);
+  });
+
+  it('validates observation privacy and ordered alert thresholds', () => {
+    const observation = parseObservationInput({
+      neighborhood: '28.61 77.20 Riverside',
+      city: 'New Delhi',
+      category: 'smoke_haze',
+      description: `28°36'50"N near the market`,
+    });
+    expect(observation?.neighborhood).not.toContain('28.61');
+    expect(observation?.description).not.toContain('°');
+    expect(
+      parseSettingsPatch({ alerts: { highAqiThreshold: 180, severeAqiThreshold: 150 } })
+    ).toBeNull();
+  });
+
+  it('honors explicit demo overrides before session and environment defaults', () => {
+    const previous = process.env.NEXT_PUBLIC_DEMO_MODE;
+    process.env.NEXT_PUBLIC_DEMO_MODE = 'true';
+    expect(resolveDemoMode(false, true)).toBe(false);
+    expect(resolveDemoMode(undefined, false)).toBe(false);
+    expect(resolveDemoMode(undefined, undefined)).toBe(true);
+    if (previous === undefined) delete process.env.NEXT_PUBLIC_DEMO_MODE;
+    else process.env.NEXT_PUBLIC_DEMO_MODE = previous;
+  });
+
+  it('formats forecast labels in the city timezone', () => {
+    expect(formatLocalHour('2026-11-26T18:00:00Z', 'Asia/Kolkata')).toBe('23:30');
+    expect(formatLocalHour('bad-date', 'Asia/Kolkata')).toBe('Time unavailable');
+  });
+
+  it('rate limits repeated writes with a retry hint', () => {
+    const key = `test-limit-${Math.random().toString(36).slice(2)}`;
+    for (let i = 0; i < 12; i += 1) expect(checkRateLimit(key).allowed).toBe(true);
+    const blocked = checkRateLimit(key);
+    expect(blocked.allowed).toBe(false);
+    expect(blocked.retryAfterSeconds).toBeGreaterThan(0);
+  });
+
+  it('persists challenge joins and action logs per session', async () => {
+    const before = await getCommunityData('challenge-session');
+    const challengeId = before.challenges[0].id;
+    await actOnChallenge(challengeId, 'join', 'challenge-session');
+    await actOnChallenge(challengeId, 'log_action', 'challenge-session');
+    const after = await getCommunityData('challenge-session');
+    const challenge = after.challenges.find((c) => c.id === challengeId);
+    expect(challenge?.joined).toBe(true);
+    expect(challenge?.currentActions).toBe(before.challenges[0].currentActions + 1);
+    expect(challenge?.participantsCount).toBe(before.challenges[0].participantsCount + 1);
   });
 });

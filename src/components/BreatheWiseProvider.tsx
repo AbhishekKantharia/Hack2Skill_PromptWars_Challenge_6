@@ -1,6 +1,14 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import type {
   AirQualityPayload,
   CityLocation,
@@ -28,8 +36,22 @@ interface BreatheWiseContextValue {
 
 const BreatheWiseContext = createContext<BreatheWiseContextValue | null>(null);
 
+function readStoredTheme(): UserSettings['theme'] {
+  if (typeof window === 'undefined') return 'light';
+  try {
+    const saved = window.localStorage.getItem('breathewise-theme');
+    if (saved === 'dark' || saved === 'light') return saved;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  } catch {
+    return 'light';
+  }
+}
+
 export function BreatheWiseProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
+  const [settings, setSettings] = useState<UserSettings>(() => ({
+    ...DEFAULT_USER_SETTINGS,
+    theme: readStoredTheme(),
+  }));
   const [activeCity, setActiveCityState] = useState<CityLocation>(FEATURED_CITIES[0]);
   const [airQuality, setAirQuality] = useState<AirQualityPayload | null>(null);
   const [alerts, setAlerts] = useState<IntelligentAlert[]>([]);
@@ -37,14 +59,12 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
   const [aqError, setAqError] = useState<string | null>(null);
   const [geoStatus, setGeoStatus] = useState<string | null>(null);
   const refreshIdRef = useRef(0);
+  const settingsWriteIdRef = useRef(0);
+  const themeTogglePendingRef = useRef(false);
+  const demoTogglePendingRef = useRef(false);
 
-  useEffect(() => {
-    const root = document.documentElement;
-    if (settings.theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+  useLayoutEffect(() => {
+    document.documentElement.classList.toggle('dark', settings.theme === 'dark');
     try {
       window.localStorage.setItem('breathewise-theme', settings.theme);
     } catch {
@@ -57,8 +77,12 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
       const target = cityOverride ?? activeCity;
       const demoFlag = demoOverride ?? settings.forceDemoMode;
       const refreshId = ++refreshIdRef.current;
+      const targetChanged =
+        target.name !== activeCity.name || target.lat !== activeCity.lat || target.lon !== activeCity.lon;
+      const demoChanged = demoFlag !== settings.forceDemoMode;
       setLoadingAq(true);
       setAqError(null);
+      if (targetChanged || demoChanged) setAirQuality(null);
       try {
         const params = new URLSearchParams({
           lat: String(target.lat),
@@ -90,18 +114,7 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     let active = true;
-    let preferredTheme: UserSettings['theme'] = 'light';
-    try {
-      const saved = window.localStorage.getItem('breathewise-theme');
-      preferredTheme =
-        saved === 'dark' || saved === 'light'
-          ? saved
-          : window.matchMedia('(prefers-color-scheme: dark)').matches
-            ? 'dark'
-            : 'light';
-    } catch {
-      preferredTheme = 'light';
-    }
+    const preferredTheme = readStoredTheme();
     (async () => {
       try {
         const res = await apiFetch('/api/settings', { cache: 'no-store' });
@@ -119,7 +132,6 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
         // Use defaults
       }
       if (active) {
-        setSettings((prev) => ({ ...prev, theme: preferredTheme }));
         await refreshAirQuality(DEFAULT_USER_SETTINGS.defaultCity, false);
       }
     })();
@@ -139,6 +151,7 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
 
   const updateSettings = useCallback(
     async (patch: Partial<UserSettings>): Promise<boolean> => {
+      const writeId = ++settingsWriteIdRef.current;
       try {
         const res = await apiFetch('/api/settings', {
           method: 'PATCH',
@@ -147,7 +160,12 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
         });
         if (!res.ok) return false;
         const data = await res.json();
-        setSettings(data.settings);
+        if (writeId === settingsWriteIdRef.current) {
+          setSettings((prev) => ({
+            ...data.settings,
+            theme: typeof patch.theme === 'undefined' ? prev.theme : data.settings.theme,
+          }));
+        }
         if (patch.defaultCity || typeof patch.forceDemoMode === 'boolean') {
           await refreshAirQuality(
             data.settings.defaultCity,
@@ -163,13 +181,29 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
   );
 
   const toggleTheme = useCallback(() => {
-    const nextTheme = settings.theme === 'dark' ? 'light' : 'dark';
-    void updateSettings({ theme: nextTheme });
+    if (themeTogglePendingRef.current) return;
+    themeTogglePendingRef.current = true;
+    const previous = settings.theme;
+    const nextTheme = previous === 'dark' ? 'light' : 'dark';
+    setSettings((prev) => ({ ...prev, theme: nextTheme }));
+    void updateSettings({ theme: nextTheme })
+      .then((ok) => {
+        if (!ok) setSettings((prev) => ({ ...prev, theme: previous }));
+      })
+      .finally(() => {
+        themeTogglePendingRef.current = false;
+      });
   }, [settings.theme, updateSettings]);
 
   const toggleDemoMode = useCallback(async () => {
+    if (demoTogglePendingRef.current) return;
+    demoTogglePendingRef.current = true;
     const nextDemo = !settings.forceDemoMode;
-    await updateSettings({ forceDemoMode: nextDemo });
+    try {
+      await updateSettings({ forceDemoMode: nextDemo });
+    } finally {
+      demoTogglePendingRef.current = false;
+    }
   }, [settings.forceDemoMode, updateSettings]);
 
   const requestGeolocation = useCallback(() => {

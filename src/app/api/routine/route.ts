@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAirQualityForLocation } from '@/lib/air-quality-service';
 import { generateCleanerDayRoutine } from '@/lib/routine-engine';
 import { getSettings } from '@/lib/store';
-import { getSessionId } from '@/lib/request-context';
-import { allowRequest } from '@/lib/rate-limit';
+import { getSessionId, rateLimitKey } from '@/lib/request-context';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { resolveDemoMode } from '@/lib/demo-mode';
 import {
   parseBudgetTier,
   parseCityLocation,
@@ -16,18 +17,21 @@ import {
 export async function POST(req: NextRequest) {
   try {
     const sessionId = getSessionId(req);
-    if (!allowRequest(`routine:${sessionId}`)) {
+    const limit = checkRateLimit(rateLimitKey(sessionId, req, 'routine'));
+    if (!limit.allowed) {
       return NextResponse.json(
         { error: 'Too many requests. Please wait a minute and try again.' },
-        { status: 429 }
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
       );
     }
 
     const body = (await readJsonObject(req)) ?? {};
     const settings = await getSettings(sessionId);
     const location = parseCityLocation(body.location) ?? settings.defaultCity;
-    const forceDemo =
-      typeof body.forceDemoMode === 'boolean' ? body.forceDemoMode : settings.forceDemoMode;
+    const forceDemo = resolveDemoMode(
+      typeof body.forceDemoMode === 'boolean' ? body.forceDemoMode : undefined,
+      settings.forceDemoMode
+    );
 
     const airQuality = await getAirQualityForLocation(location, {
       forceDemoMode: forceDemo,

@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { LocateFixed, MapPin, Search } from 'lucide-react';
 import type { CityLocation } from '@/types/breathewise';
 import { FEATURED_CITIES } from '@/lib/demo-data';
+import { apiFetch } from '@/lib/client-api';
 import { useBreatheWise } from '@/components/BreatheWiseProvider';
 
 export function LocationSelector() {
@@ -12,6 +13,7 @@ export function LocationSelector() {
   const [results, setResults] = useState<CityLocation[]>(FEATURED_CITIES);
   const [open, setOpen] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -28,14 +30,18 @@ export function LocationSelector() {
     const timer = setTimeout(async () => {
       if (!open) return;
       setSearching(true);
+      setSearchError(null);
       try {
-        const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setResults(data.results ?? FEATURED_CITIES);
+        const res = await apiFetch(`/api/geocode?q=${encodeURIComponent(query)}`);
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.error ?? `Search failed (HTTP ${res.status})`);
         }
-      } catch {
+        const data = await res.json();
+        setResults(data.results ?? FEATURED_CITIES);
+      } catch (err) {
         setResults(FEATURED_CITIES);
+        setSearchError(err instanceof Error ? err.message : 'City search is unavailable.');
       } finally {
         setSearching(false);
       }
@@ -67,6 +73,11 @@ export function LocationSelector() {
             <div className="px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               {searching ? 'Searching cities...' : query ? 'Search Results' : 'Featured Urban Hubs'}
             </div>
+            {searchError && (
+              <div className="mx-2.5 mb-1.5 rounded-lg bg-rose-500/10 px-2 py-1 text-[11px] text-rose-700 dark:text-rose-300">
+                {searchError}
+              </div>
+            )}
             {results.length === 0 ? (
               <div className="px-3 py-2 text-xs text-slate-500">No matching locations found.</div>
             ) : (
