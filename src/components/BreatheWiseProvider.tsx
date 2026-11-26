@@ -13,6 +13,7 @@ import React, {
 import type {
   AirQualityPayload,
   CityLocation,
+  DailyImpactRecommendation,
   IntelligentAlert,
   UserSettings,
 } from '@/types/breathewise';
