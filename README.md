@@ -137,15 +137,16 @@ All four checks (`typecheck`, `lint`, 26 tests, production build) pass out of th
 
 - Each browser receives an HMAC-signed session cookie (`HttpOnly`, `Secure` in production, `SameSite=Lax`, 1 year). The proxy verifies the signature and overwrites `x-session-id` plus a trusted marker; route handlers reject unmarked IDs. No session state is stored in `localStorage` (only the UI theme is).
 - All API routes are session-scoped and rate-limited to 12 requests per minute per session/IP namespace, returning `429` with `Retry-After`. The proxy IP is taken from the trusted rightmost `x-forwarded-for` value.
-- State-changing requests enforce same-origin CSRF checks (`Origin`/`Sec-Fetch-Site`) and require `application/json`; `multipart/form-data` uploads are rejected. CORS is same-origin by default; `ALLOWED_ORIGINS` can add explicit trusted origins. In-memory rate limits and AI caps are per-serverless-instance; use a shared store for multi-instance strictness.
+- State-changing requests require `Origin` or `Sec-Fetch-Site`, enforce same-origin CSRF checks, and require `application/json`; `multipart/form-data` uploads are rejected. CORS is same-origin by default; `ALLOWED_ORIGINS` can add explicit trusted origins. Production fails closed when `SESSION_COOKIE_SECRET` is missing. In-memory rate limits and AI caps are per-serverless-instance; use a shared store for strict multi-instance enforcement.
 - Admin paths (`/admin/*`, `/api/admin/*`) require `ADMIN_TOKEN` as a bearer token and return `404` when admin access is not configured. No admin routes ship by default.
-- AI calls are capped by `AI_DAILY_REQUEST_CAP` (default 200/day) before any provider request. Set provider billing caps in Google AI Studio/OpenAI as the authoritative spend limit.
+- AI calls are capped by `AI_DAILY_REQUEST_CAP` (default 200/day) after input validation and before any provider request. Chat history is not sent to providers, sensitivity labels are replaced by coarse planning thresholds, model output is length/format checked, and answers remain inert rendered text. Set provider billing caps in Google AI Studio/OpenAI as the authoritative spend limit.
 - API bodies are read through a 16 KB stream cap and parsed through `src/lib/validation.ts` (types, ranges, city coordinates, alert thresholds, frequencies, categories, IANA timezones). Unrecognized values are rejected or ignored, never trusted verbatim.
 - Failed live environmental feeds are never presented as live: the API returns a clearly labeled demo payload with `degraded: true` and `liveError`, surfaced as a banner in the UI. Demo preference precedence is explicit request flag → session setting → environment default.
 - Forecast labels are formatted in each city's IANA timezone while upstream Open-Meteo requests are pinned to UTC; cleaner-day windows only use future forecast hours.
 - Local persistence uses `data/local-store.json` (gitignored). `BREATHEWISE_STORE_PATH` accepts only a filename inside that directory; tests use an in-memory store.
 - Supabase access uses only the anon key with RLS. Idempotent policies allow anonymous reads of community observations/challenges and anonymous submission of `user_submitted` reports whose text contains no coordinate-like strings; an additional table constraint rejects coordinate-like text.
-- Security headers include CSP, `nosniff`, frame denial, referrer policy, permissions policy, COOP/CORP, and HSTS. Source maps and the `X-Powered-By` header are disabled in production. No secrets, cookies, debug endpoints, or raw SQL are present.
+- Security headers include CSP, `nosniff`, frame denial, referrer policy, permissions policy, COOP/CORP, and HSTS. CSP `connect-src` is limited to same-origin and configured AI/Supabase hosts. Source maps and the `X-Powered-By` header are disabled in production. No secrets, debug endpoints, upload handlers, GraphQL/WebSocket endpoints, webhooks, payment flows, or raw SQL are present.
+- Vercel Preview deployments can be locked with `PREVIEW_ACCESS_TOKEN`; visitors add `?preview=<token>` once and receive an HttpOnly cookie. Production deployments are unaffected. Dependencies are pinned exactly; any future CI action must be pinned to a commit SHA and secrets supplied via Vercel/OIDC.
 
 ---
 
@@ -156,5 +157,5 @@ All four checks (`typecheck`, `lint`, 26 tests, production build) pass out of th
 3. Import the repository in **Vercel**:
    - Framework Preset: `Next.js`
    - Build Command: `npm run build`
-   - Add optional environment variables (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `WAQI_API_TOKEN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SESSION_COOKIE_SECRET`, `ADMIN_TOKEN`, `ALLOWED_ORIGINS`, `AI_DAILY_REQUEST_CAP`).
+   - Add environment variables (`SESSION_COOKIE_SECRET` required in Production; optional `GEMINI_API_KEY`, `OPENAI_API_KEY`, `WAQI_API_TOKEN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `PREVIEW_ACCESS_TOKEN`, `ADMIN_TOKEN`, `ALLOWED_ORIGINS`, `AI_DAILY_REQUEST_CAP`).
 4. Deploy — Vercel serves all React pages and `/api/*` backend routes globally with zero extra server setup.

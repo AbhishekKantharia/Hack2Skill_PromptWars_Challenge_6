@@ -29,7 +29,7 @@ import {
   redactCoordinateLikeText,
 } from '@/lib/validation';
 import { SUSTAINABILITY_ACTIONS } from '@/lib/calculations';
-import { getSessionId, isSafeSessionId } from '@/lib/request-context';
+import { getSessionId, isSafeSessionId, PROXY_HEADER } from '@/lib/request-context';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { resolveDemoMode } from '@/lib/demo-mode';
 import { formatLocalHour } from '@/lib/time';
@@ -216,6 +216,18 @@ describe('Privacy, validation, and transparency', () => {
     expect(id).not.toBe('__proto__');
     expect(isSafeSessionId('constructor')).toBe(false);
     expect(isSafeSessionId('valid-session-123')).toBe(true);
+
+    const trustedReq = {
+      headers: {
+        get: (name: string) =>
+          name === 'x-session-id'
+            ? 'valid-session-123'
+            : name === PROXY_HEADER
+              ? '1'
+              : null,
+      },
+    } as never;
+    expect(getSessionId(trustedReq)).toBe('valid-session-123');
   });
 
   it('redacts common coordinate formats and rejects unsafe numeric coercion', () => {
