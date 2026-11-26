@@ -221,7 +221,7 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
     if (themeTogglePendingRef.current) return;
     themeTogglePendingRef.current = true;
     const previous = settingsRef.current.theme;
-    const nextTheme = previous === 'dark' ? 'light' : 'dark';
+    const nextTheme: UserSettings['theme'] = previous === 'dark' ? 'light' : 'dark';
     const optimistic = { ...settingsRef.current, theme: nextTheme };
     settingsRef.current = optimistic;
     setSettings(optimistic);

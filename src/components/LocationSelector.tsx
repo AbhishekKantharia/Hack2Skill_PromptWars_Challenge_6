@@ -36,12 +36,7 @@ export function LocationSelector() {
 
   useEffect(() => {
     const term = query.trim();
-    if (!open || term.length === 0) {
-      setResults(FEATURED_CITIES);
-      setSearchError(null);
-      setSearching(false);
-      return;
-    }
+    if (!open || term.length === 0) return;
     const timer = setTimeout(async () => {
       setSearching(true);
       setSearchError(null);
@@ -93,6 +88,8 @@ export function LocationSelector() {
     );
   }, [flashGeoStatus, setActiveCity]);
 
+  const visibleResults = open && query.trim() ? results : FEATURED_CITIES;
+
   return (
     <div ref={containerRef} className="relative flex min-w-0 max-w-full items-center gap-2">
       <div className="relative min-w-0 flex-1 basis-0">
@@ -106,6 +103,9 @@ export function LocationSelector() {
             onFocus={() => setOpen(true)}
             onChange={(e) => {
               setQuery(e.target.value);
+              setResults(FEATURED_CITIES);
+              setSearchError(null);
+              setSearching(false);
               setOpen(true);
             }}
             className="w-full min-w-0 bg-transparent text-sm text-slate-800 placeholder:text-slate-500 focus:outline-none dark:text-slate-100 dark:placeholder:text-slate-400"
@@ -115,17 +115,17 @@ export function LocationSelector() {
         {open && (
           <div className="absolute left-0 right-0 top-full z-50 mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
             <div className="px-2.5 py-1 text-micro font-semibold uppercase tracking-wider text-slate-400">
-              {searching ? 'Searching cities...' : query ? 'Search Results' : 'Featured Urban Hubs'}
+              {query.trim() && searching ? 'Searching cities...' : query.trim() ? 'Search Results' : 'Featured Urban Hubs'}
             </div>
-            {searchError && (
+            {query.trim() && searchError && (
               <div className="mx-2.5 mb-1.5 rounded-lg bg-rose-500/10 px-2 py-1 text-micro text-rose-700 dark:text-rose-300">
                 {searchError}
               </div>
             )}
-            {results.length === 0 ? (
+            {visibleResults.length === 0 ? (
               <div className="px-3 py-2 text-xs text-slate-500">No matching locations found.</div>
             ) : (
-              results.map((city, idx) => (
+              visibleResults.map((city, idx) => (
                 <button
                   key={`${city.name}-${city.lat}-${idx}`}
                   type="button"
