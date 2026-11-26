@@ -112,7 +112,7 @@ Verify:
 
 - Keys are not present in client bundles.
 - Chat history is capped at 40 messages.
-- AI failure preserves the question and shows a usable error.
+- AI failure shows a usable inline error; the user may need to retype or retry.
 - Prompt-injection-style output is rejected or rendered inertly.
 
 ## Phase 4 — Cleaner Day and Indoor Advisor
@@ -121,7 +121,7 @@ Dependencies: Phase 2.
 
 Tasks:
 
-- Keep `/cleaner-day` generating future-hour schedules from sensitivity, commute, budget, and activity inputs.
+- Keep `/cleaner-day` generating schedules from sensitivity, commute, budget, and activity inputs, preferring future forecast hours.
 - Make planned-activity toggles materially affect output, or remove labels that imply unsupported behavior.
 - Keep `/indoor` filters, outdoor baseline, HEPA/MERV-13, and source-control references.
 - Keep non-medical disclaimers visible.
@@ -132,7 +132,7 @@ Deliverable:
 
 Verify:
 
-- Generated schedule uses only future hours.
+- Generated schedule prefers future hours and falls back safely when none are available.
 - Free, balanced, and advanced budgets produce different recommendations where appropriate.
 - Missing data renders safely.
 

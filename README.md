@@ -129,7 +129,7 @@ npm run build
 npm start
 ```
 
-All four checks (`typecheck`, `lint`, 27 tests, production build) pass out of the box.
+Current snapshot note: the local branch has known typecheck and lint blockers; see `TRD.md` and `TESTING.md` before claiming all four checks pass.
 
 ---
 

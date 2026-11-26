@@ -77,7 +77,7 @@ Do not mark a release ready until all four local scripts pass.
 - [ ] Unusual change triggers warning/info based on direction.
 - [ ] Forecast spike triggers when a future hour is high enough above current AQI.
 - [ ] Favorable ventilation window appears when forecast allows it.
-- [ ] Bell popover shows urgent count and `Customize` link.
+- [ ] Bell popover shows total alert count, color-coded urgency, and `Customize` link.
 - [ ] Home strip shows at most the first two alerts.
 - [ ] Disabling an alert category stops that advisory.
 
@@ -114,7 +114,7 @@ Do not mark a release ready until all four local scripts pass.
 - [ ] Empty state appears before generation.
 - [ ] Sensitivity, commute, budget, and activity controls update state.
 - [ ] Generate button disables and shows loading state.
-- [ ] Generated schedule uses only future forecast hours.
+- [ ] Generated schedule prefers future forecast hours and falls back safely when unavailable.
 - [ ] Morning, Afternoon, and Evening sections include benefit, cost, impact, caveat, and forecast AQI.
 - [ ] `Daily Overview (LIVE/DEMO)` matches current data mode.
 - [ ] Free, balanced, and advanced budgets produce appropriate differences.
@@ -149,7 +149,7 @@ Do not mark a release ready until all four local scripts pass.
 - [ ] All six sliders load with saved or default frequencies.
 - [ ] Save Weekly Plan shows `Saving...` then success/error notice.
 - [ ] Saved plan survives refresh.
-- [ ] Unknown action IDs and over-max values are rejected server-side.
+- [ ] Unknown action IDs are ignored and over-max values are clamped server-side.
 - [ ] Formulas and citations are expandable and readable.
 - [ ] What-If scenario selection changes adoption percentage and results.
 - [ ] Initial load failure falls back to defaults without crashing.

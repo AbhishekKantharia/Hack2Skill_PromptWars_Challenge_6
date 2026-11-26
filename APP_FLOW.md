@@ -55,7 +55,7 @@ System responses:
 - Non-blocking error banner with retry if stale data remains.
 - Amber degraded-feed banner when live data failed and labeled demo data is shown.
 - `SAMPLE DEMO DATA` badge and sample pollutant heading in demo mode.
-- `N/A` when individual pollutants or weather fields are unavailable.
+- `N/A` for missing pollutant values; weather condition may show `Weather data unavailable`.
 
 ### `/assistant` — AI Air Quality Assistant
 
@@ -79,7 +79,7 @@ System responses:
 
 Failure/recovery:
 
-- Network or provider failure keeps the question visible and shows an inline error.
+- Network or provider failure removes the optimistic message and shows an inline error; the user must retype or retry.
 - Failed history clear keeps history visible.
 
 ### `/map` — Live Air Quality Map
@@ -279,10 +279,10 @@ State: static only. The DMCA agent contact is still a placeholder and must be re
 - Air-quality fetch fails with no cached data: retry from full error screen.
 - Air-quality fetch fails with cached data: retry from banner while stale data remains visible.
 - Live feed unusable: app continues with clearly labeled demo fallback and explains `liveError`.
-- AI request fails: retype or retry; history is preserved.
+- AI request fails: retype or retry; prior history is preserved.
 - Settings write fails: notice appears and optimistic theme changes revert.
 - Geolocation denied: temporary status explains permission was declined; manual city search still works.
-- Preview URL without valid token: 404 until a valid preview token is supplied.
+- Preview deployment with `PREVIEW_ACCESS_TOKEN` configured: URL without valid token returns 404 until a valid token is supplied.
 
 ## 6. Important States
 

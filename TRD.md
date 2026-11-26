@@ -87,7 +87,7 @@ Scripts in `package.json`: `dev`, `build`, `start`, `lint`, `typecheck`, `test`.
 
 - Let the user select sensitivity profile, commute mode, budget tier, and planned activities.
 - Generate Morning, Afternoon, and Evening actions with explanation, expected benefit, cost, environmental impact, caveat, and forecast AQI.
-- Use only future forecast hours and show `Daily Overview (LIVE/DEMO)` based on the actual data mode.
+- Prefer future forecast hours and show `Daily Overview (LIVE/DEMO)` based on the actual data mode; fall back safely when forecast hours are unavailable.
 - Show an empty state before generation, a disabled/loading state during generation, and an inline error state on failure.
 
 ### Indoor Advisor (`/indoor`)
@@ -192,7 +192,7 @@ Names only; never commit or print values.
 - Required in production: `SESSION_COOKIE_SECRET`.
 - Optional: `NEXT_PUBLIC_DEMO_MODE`, `DEMO_MODE`, `GEMINI_API_KEY`, `OPENAI_API_KEY`, `LLM_MODEL`, `AI_DAILY_REQUEST_CAP`, `WAQI_API_TOKEN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `BREATHEWISE_STORE_PATH`, `PREVIEW_ACCESS_TOKEN`, `ADMIN_TOKEN`, `ALLOWED_ORIGINS`.
 - Platform-provided: `NODE_ENV`, `VERCEL_ENV`.
-- Canonical template: `.env.example`.
+- Documented template: `.env.example`; the extra fallback names above are used in code but not yet listed there and should be added before release.
 
 ## 12. Definition of Done
 
