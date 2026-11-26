@@ -133,15 +133,6 @@ All four checks (`typecheck`, `lint`, 27 tests, production build) pass out of th
 
 ---
 
-## Frontend Performance
-
-- The root context value is memoized, geolocation status is local to the city selector, and provider callbacks use refs so city/demo/theme changes do not invalidate every consumer. Recharts and Leaflet components are memoized, chart data is memoized, and stale air-quality data stays visible while refreshing.
-- Large pulsing skeletons, sticky/sidebar backdrop blur, animated map jumps, chart entry animations, and broad hover filters are removed. A `prefers-reduced-motion` guard disables remaining animation and transition work.
-- Navigation links prefetch routes on hover, focus, and touchstart. City pills, refresh/mode toggles, and the global map button warm their API responses through a 30-second deduplicating GET cache, so the subsequent click consumes the prefetched result without a second request.
-- Mobile overflow is prevented with bounded flex/grid children, responsive alert popups, constrained Leaflet popups, and smaller chart tick labels. Typography is standardized through `text-display`, `text-h1`, `text-h2`, `text-h3`, `text-body`, `text-caption`, and `text-micro` tokens in `src/app/globals.css`.
-
----
-
 ## Privacy & API Behavior
 
 - Each browser receives an HMAC-signed, time-stamped session cookie (`HttpOnly`, `Secure` in production, `SameSite=Lax`, 1 year) on the first page response, so parallel mount-time API calls share one session. The proxy verifies the signature and age, then overwrites `x-session-id` plus a trusted marker; route handlers reject unmarked IDs. No session state is stored in `localStorage` (only the UI theme is).
