@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { isIP } from 'node:net';
 import type { NextRequest } from 'next/server';
 
 const HEADER = 'x-session-id';
@@ -31,11 +32,18 @@ export function getSessionId(req: NextRequest): string {
   return verified && isSafeSessionId(provided) ? provided : randomUUID();
 }
 
+function validIp(value: string | null | undefined): string | null {
+  const candidate = value?.split(',')[0]?.trim().replace(/^\[|\]$/g, '');
+  return candidate && isIP(candidate) > 0 ? candidate : null;
+}
+
 export function getClientIp(req: NextRequest): string {
-  const vercelIp = req.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim();
-  const realIp = req.headers.get('x-real-ip')?.trim();
-  const forwardedIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  return vercelIp || realIp || forwardedIp || 'unknown-ip';
+  return (
+    validIp(req.headers.get('x-vercel-forwarded-for')) ??
+    validIp(req.headers.get('x-real-ip')) ??
+    validIp(req.headers.get('x-forwarded-for')) ??
+    'unknown-ip'
+  );
 }
 
 export function rateLimitKey(sessionId: string, req: NextRequest, namespace: string): string {

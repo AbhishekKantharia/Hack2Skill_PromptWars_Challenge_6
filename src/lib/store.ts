@@ -19,6 +19,7 @@ import {
   COMMUNITY_CATEGORIES,
   COMMUNITY_SEVERITIES,
   redactCoordinateLikeText,
+  validateAlertOrder,
 } from '@/lib/validation';
 
 interface SessionState {
@@ -221,10 +222,11 @@ export async function updateSettings(
 ): Promise<UserSettings> {
   const db = readLocalDb();
   const session = getSession(db, sessionId);
+  const alerts = { ...session.settings.alerts, ...(patch.alerts ?? {}) };
   session.settings = {
     ...session.settings,
     ...patch,
-    alerts: { ...session.settings.alerts, ...(patch.alerts ?? {}) },
+    alerts: validateAlertOrder(alerts) ? alerts : session.settings.alerts,
   };
   await writeLocalDb(db);
   return structuredClone(session.settings);

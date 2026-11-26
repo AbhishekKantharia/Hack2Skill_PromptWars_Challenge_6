@@ -1,28 +1,25 @@
 'use client';
 
-import React, { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
-import type { AirIndxMarker } from '@/types/airindx';
+import type { AirIndxMarker, ZoomCommand } from '@/types/airindx';
 
 const GLOBE_RADIUS = 1.85;
 const MIN_DISTANCE = 3.4;
 const MAX_DISTANCE = 7.2;
-
-export interface ZoomCommand {
-  direction: 1 | -1;
-  nonce: number;
-}
 
 interface GlobeProps {
   markers: AirIndxMarker[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   zoomCommand: ZoomCommand;
+  reducedMotion: boolean;
+  rotationPaused: boolean;
 }
 
-function latLonToVector3(lat: number, lon: number, radius: number) {
+export function latLonToVector3(lat: number, lon: number, radius: number) {
   const phi = ((90 - lat) * Math.PI) / 180;
   const theta = ((lon + 180) * Math.PI) / 180;
   return new THREE.Vector3(
@@ -37,9 +34,8 @@ function CameraRig({ zoomCommand }: { zoomCommand: ZoomCommand }) {
 
   useEffect(() => {
     if (zoomCommand.nonce === 0) return;
-    const distance = camera.position.length();
     const nextDistance = THREE.MathUtils.clamp(
-      distance + zoomCommand.direction * -0.55,
+      camera.position.length() - zoomCommand.direction * 0.55,
       MIN_DISTANCE,
       MAX_DISTANCE
     );
@@ -54,37 +50,28 @@ function AqiMarker({
   marker,
   selected,
   onSelect,
+  glowRef,
 }: {
   marker: AirIndxMarker;
   selected: boolean;
   onSelect: (id: string) => void;
+  glowRef: (mesh: THREE.Mesh | null) => void;
 }) {
-  const glowRef = useRef<THREE.Mesh>(null);
   const position = useMemo(
     () => latLonToVector3(marker.lat, marker.lon, GLOBE_RADIUS * 1.025),
     [marker.lat, marker.lon]
   );
 
-  useFrame(({ clock }) => {
-    if (!glowRef.current) return;
-    const pulse = 1 + Math.sin(clock.elapsedTime * 2.4 + marker.lat) * 0.1;
-    glowRef.current.scale.setScalar(pulse);
-  });
+  useEffect(
+    () => () => {
+      document.body.style.cursor = '';
+    },
+    []
+  );
 
   return (
     <group position={position}>
-      <mesh
-        onClick={(event) => {
-          event.stopPropagation();
-          onSelect(marker.id);
-        }}
-        onPointerOver={() => {
-          document.body.style.cursor = 'pointer';
-        }}
-        onPointerOut={() => {
-          document.body.style.cursor = '';
-        }}
-      >
+      <mesh>
         <sphereGeometry args={[selected ? 0.082 : 0.063, 18, 18]} />
         <meshBasicMaterial color={marker.colorHex} toneMapped={false} />
       </mesh>
@@ -99,17 +86,48 @@ function AqiMarker({
           toneMapped={false}
         />
       </mesh>
+      <mesh
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect(marker.id);
+        }}
+        onPointerOver={() => {
+          document.body.style.cursor = 'pointer';
+        }}
+        onPointerOut={() => {
+          document.body.style.cursor = '';
+        }}
+      >
+        <sphereGeometry args={[selected ? 0.15 : 0.12, 12, 12]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
     </group>
   );
 }
 
-function Earth({ markers, selectedId, onSelect }: Omit<GlobeProps, 'zoomCommand'>) {
+function Earth({
+  markers,
+  selectedId,
+  onSelect,
+  reducedMotion,
+}: Omit<GlobeProps, 'zoomCommand' | 'rotationPaused'>) {
   const [dayMap, nightMap, specularMap, normalMap] = useTexture([
     '/airindx/earth_atmos_2048.jpg',
     '/airindx/earth_lights_2048.png',
     '/airindx/earth_specular_2048.jpg',
     '/airindx/earth_normal_2048.jpg',
   ]);
+  const glowRefs = useRef<Array<THREE.Mesh | null>>([]);
+
+  useFrame(({ clock }) => {
+    if (reducedMotion) return;
+    glowRefs.current.forEach((mesh, index) => {
+      if (!mesh) return;
+      const marker = markers[index];
+      const phase = marker ? marker.lat : index;
+      mesh.scale.setScalar(1 + Math.sin(clock.elapsedTime * 2.4 + phase) * 0.1);
+    });
+  });
 
   return (
     <group>
@@ -136,43 +154,64 @@ function Earth({ markers, selectedId, onSelect }: Omit<GlobeProps, 'zoomCommand'
           depthWrite={false}
         />
       </mesh>
-      {markers.map((marker) => (
+      {markers.map((marker, index) => (
         <AqiMarker
           key={marker.id}
           marker={marker}
           selected={marker.id === selectedId}
           onSelect={onSelect}
+          glowRef={(mesh) => {
+            glowRefs.current[index] = mesh;
+          }}
         />
       ))}
     </group>
   );
 }
 
-export function AirIndxGlobe({ markers, selectedId, onSelect, zoomCommand }: GlobeProps) {
+export function AirIndxGlobe({
+  markers,
+  selectedId,
+  onSelect,
+  zoomCommand,
+  reducedMotion,
+  rotationPaused,
+}: GlobeProps) {
   return (
-    <Canvas
-      dpr={[1, 1.75]}
-      camera={{ position: [0.4, 0.25, 5.4], fov: 42, near: 0.1, far: 100 }}
-      gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+    <div
+      role="img"
+      aria-label={`Interactive 3D Earth with ${markers.length} city air quality markers. Use the keyboard location list for marker selection.`}
+      className="h-full w-full"
     >
-      <ambientLight intensity={0.55} />
-      <directionalLight position={[5, 3, 4]} intensity={2.1} color="#ffffff" />
-      <directionalLight position={[-5, -2, -4]} intensity={0.6} color="#4f8cff" />
-      <Suspense fallback={null}>
-        <Earth markers={markers} selectedId={selectedId} onSelect={onSelect} />
-      </Suspense>
-      <CameraRig zoomCommand={zoomCommand} />
-      <OrbitControls
-        enablePan={false}
-        enableDamping
-        dampingFactor={0.08}
-        autoRotate
-        autoRotateSpeed={0.32}
-        rotateSpeed={0.45}
-        zoomSpeed={0.7}
-        minDistance={MIN_DISTANCE}
-        maxDistance={MAX_DISTANCE}
-      />
-    </Canvas>
+      <Canvas
+        dpr={[1, 1.75]}
+        camera={{ position: [0.4, 0.25, 5.4], fov: 42, near: 0.1, far: 100 }}
+        gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+      >
+        <ambientLight intensity={0.55} />
+        <directionalLight position={[5, 3, 4]} intensity={2.1} color="#ffffff" />
+        <directionalLight position={[-5, -2, -4]} intensity={0.6} color="#4f8cff" />
+        <Suspense fallback={null}>
+          <Earth
+            markers={markers}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            reducedMotion={reducedMotion}
+          />
+        </Suspense>
+        <CameraRig zoomCommand={zoomCommand} />
+        <OrbitControls
+          enablePan={false}
+          enableDamping
+          dampingFactor={0.08}
+          autoRotate={!reducedMotion && !rotationPaused}
+          autoRotateSpeed={0.32}
+          rotateSpeed={0.45}
+          zoomSpeed={0.7}
+          minDistance={MIN_DISTANCE}
+          maxDistance={MAX_DISTANCE}
+        />
+      </Canvas>
+    </div>
   );
 }

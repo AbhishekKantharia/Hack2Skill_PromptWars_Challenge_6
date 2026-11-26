@@ -1,9 +1,9 @@
+import { createHash } from 'crypto';
+
 export function safeEqual(a: unknown, b: unknown): boolean {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
-  const encoder = new TextEncoder();
-  const left = encoder.encode(a);
-  const right = encoder.encode(b);
-  if (left.length !== right.length) return false;
+  const left = createHash('sha256').update(a).digest();
+  const right = createHash('sha256').update(b).digest();
   let diff = 0;
   for (let i = 0; i < left.length; i += 1) diff |= left[i] ^ right[i];
   return diff === 0;

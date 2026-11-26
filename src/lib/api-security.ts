@@ -3,6 +3,10 @@ import { getSessionId, rateLimitKey } from '@/lib/request-context';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { isAllowedOrigin } from '@/lib/security';
 
+function isReadMethod(method: string): boolean {
+  return method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+}
+
 function securityHeaders(): Record<string, string> {
   return {
     Vary: 'Origin',
@@ -15,7 +19,7 @@ function securityHeaders(): Record<string, string> {
 export function enforceApiPolicy(req: NextRequest, namespace: string): NextResponse | null {
   const headers = securityHeaders();
   const origin = req.headers.get('origin');
-  const isMutation = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
+  const isMutation = !isReadMethod(req.method);
   if (isMutation && !origin && !req.headers.get('sec-fetch-site')) {
     return NextResponse.json(
       { error: 'Mutation requests must include Origin or Sec-Fetch-Site' },
@@ -41,7 +45,7 @@ export function enforceApiPolicy(req: NextRequest, namespace: string): NextRespo
     );
   }
 
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+  if (!isReadMethod(req.method)) {
     const contentType = req.headers.get('content-type') ?? '';
     if (!contentType.toLowerCase().includes('application/json')) {
       return NextResponse.json({ error: 'JSON content type required' }, { status: 415, headers });

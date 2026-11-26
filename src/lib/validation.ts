@@ -6,6 +6,7 @@ import type {
   SpaceType,
   UserSettings,
 } from '@/types/breathewise';
+import type { AirIndxMarker, AirIndxMarkersResponse } from '@/types/airindx';
 import { SUSTAINABILITY_ACTIONS } from '@/lib/calculations';
 
 const SENSITIVITY_GROUPS: SensitivityGroup[] = [
@@ -42,7 +43,10 @@ export async function readJsonObject(
       const { done, value } = await reader.read();
       if (done) break;
       total += value.byteLength;
-      if (total > maxBytes) return null;
+      if (total > maxBytes) {
+        await reader.cancel();
+        return null;
+      }
       chunks.push(value);
     }
     const bytes = new Uint8Array(total);
@@ -56,6 +60,12 @@ export async function readJsonObject(
     return body as Record<string, unknown>;
   } catch {
     return null;
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      void 0;
+    }
   }
 }
 
@@ -205,17 +215,96 @@ export function parseSettingsPatch(
   return Object.keys(patch).length ? patch : null;
 }
 
+export function validateAlertOrder(alerts: UserSettings['alerts']): boolean {
+  return alerts.severeAqiThreshold > alerts.highAqiThreshold &&
+    alerts.favorableVentilationMaxAqi < alerts.highAqiThreshold;
+}
+
+function safeSourceUrl(value: unknown): string | null {
+  const text = asText(value, 300);
+  if (!text) return null;
+  try {
+    const parsed = new URL(text);
+    if (parsed.protocol !== 'https:') return null;
+    const allowed =
+      parsed.hostname === 'open-meteo.com' ||
+      parsed.hostname.endsWith('.open-meteo.com') ||
+      parsed.hostname === 'waqi.info' ||
+      parsed.hostname.endsWith('.waqi.info');
+    return allowed ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseNullableNumber(value: unknown, min: number, max: number): number | null | undefined {
+  if (value === null || value === undefined) return null;
+  return asFiniteNumber(value, min, max) ?? undefined;
+}
+
+export function parseAirIndxMarkersResponse(value: unknown): AirIndxMarkersResponse | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const raw = value as Record<string, unknown>;
+  if (!Array.isArray(raw.markers) || raw.markers.length > 64) return null;
+
+  const markers: AirIndxMarker[] = [];
+  for (const item of raw.markers) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+    const entry = item as Record<string, unknown>;
+    const id = asText(entry.id, 80);
+    const name = asText(entry.name, 120);
+    const country = asText(entry.country, 120);
+    const countryCode = asText(entry.countryCode, 8);
+    const timezone = isValidTimezone(entry.timezone) ?? 'UTC';
+    const lat = asFiniteNumber(entry.lat, -90, 90);
+    const lon = asFiniteNumber(entry.lon, -180, 180);
+    const aqi = asFiniteNumber(entry.aqi, 0, 500);
+    const category = asText(entry.category, 80);
+    const colorHex = asText(entry.colorHex, 7)?.toLowerCase();
+    const dominantPollutant = asText(entry.dominantPollutant, 40);
+    const temperatureC = parseNullableNumber(entry.temperatureC, -100, 100);
+    const humidityPct = parseNullableNumber(entry.humidityPct, 0, 100);
+    const windSpeedKmh = parseNullableNumber(entry.windSpeedKmh, 0, 500);
+    const dataMode = entry.dataMode === 'live' || entry.dataMode === 'demo' ? entry.dataMode : null;
+    const sourceName = asText(entry.sourceName, 160);
+    const sourceUrl = safeSourceUrl(entry.sourceUrl);
+    const timestamp = asText(entry.timestamp, 64);
+    const timestampMs = timestamp ? Date.parse(timestamp) : Number.NaN;
+
+    if (
+      !id || !name || !country || !countryCode || lat === null || lon === null ||
+      aqi === null || !category || !colorHex || !/^#[0-9a-f]{6}$/.test(colorHex) ||
+      !dominantPollutant || temperatureC === undefined || humidityPct === undefined ||
+      windSpeedKmh === undefined || !dataMode || !sourceName || !sourceUrl ||
+      !timestamp || !Number.isFinite(timestampMs)
+    ) {
+      return null;
+    }
+
+    markers.push({
+      id, name, country, countryCode, timezone, lat, lon, aqi, category, colorHex,
+      dominantPollutant, temperatureC, humidityPct, windSpeedKmh, dataMode,
+      sourceName, sourceUrl, timestamp,
+    });
+  }
+
+  const dataMode = raw.dataMode === 'live' || raw.dataMode === 'demo' ? raw.dataMode : null;
+  const degraded = typeof raw.degraded === 'boolean' ? raw.degraded : null;
+  const fetchedAt = asText(raw.fetchedAt, 64);
+  const fetchedAtMs = fetchedAt ? Date.parse(fetchedAt) : Number.NaN;
+  if (!dataMode || degraded === null || !fetchedAt || !Number.isFinite(fetchedAtMs)) return null;
+
+  return { markers, dataMode, degraded, fetchedAt };
+}
+
 export function parseFrequencies(value: unknown): Record<string, number> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const raw = value as Record<string, unknown>;
   const result: Record<string, number> = {};
   for (const action of SUSTAINABILITY_ACTIONS) {
     const value = raw[action.id];
-    if (typeof value !== 'number' && typeof value !== 'string') continue;
-    const n = Number(value);
-    if (Number.isFinite(n) && n >= 0) {
-      result[action.id] = Math.min(action.maxFrequency, Math.floor(n));
-    }
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) continue;
+    result[action.id] = Math.min(action.maxFrequency, Math.floor(value));
   }
   return result;
 }

@@ -7,12 +7,10 @@ import {
 } from '@/lib/calculations';
 import { getSavedImpactFrequencies, saveImpactFrequencies } from '@/lib/store';
 import { getSessionId } from '@/lib/request-context';
-import { enforceApiPolicy } from '@/lib/api-security';
+import { withApiPolicy } from '@/lib/api-route';
 import { asFiniteNumber, parseFrequencies, readJsonObject } from '@/lib/validation';
 
-export async function GET(req: NextRequest) {
-  const denied = enforceApiPolicy(req, 'calculator-read');
-  if (denied) return denied;
+export const GET = withApiPolicy('calculator-read', 'Failed to load calculator data', async (req: NextRequest) => {
   const sessionId = getSessionId(req);
   const frequencies = await getSavedImpactFrequencies(sessionId);
   const impact = calculateSustainabilityImpact({ frequencies });
@@ -22,36 +20,30 @@ export async function GET(req: NextRequest) {
     actions: SUSTAINABILITY_ACTIONS,
     scenarios: SIMULATOR_SCENARIOS,
   });
-}
+});
 
-export async function POST(req: NextRequest) {
-  try {
-    const denied = enforceApiPolicy(req, 'calculator-write');
-    if (denied) return denied;
-    const sessionId = getSessionId(req);
-    const body = (await readJsonObject(req)) ?? {};
+export const POST = withApiPolicy('calculator-write', 'Calculation request failed', async (req: NextRequest) => {
+  const sessionId = getSessionId(req);
+  const body = (await readJsonObject(req)) ?? {};
 
-    if (body.type === 'simulate') {
-      const scenario = SIMULATOR_SCENARIOS.find((s) => s.id === body.scenarioId);
-      const adoption = asFiniteNumber(body.adoptionPct, 0, 100);
-      if (!scenario || adoption === null) {
-        return NextResponse.json({ error: 'Invalid simulation scenario' }, { status: 400 });
-      }
-      return NextResponse.json({
-        simulation: evaluateSimulatorScenario(scenario.id, adoption),
-      });
+  if (body.type === 'simulate') {
+    const scenario = SIMULATOR_SCENARIOS.find((s) => s.id === body.scenarioId);
+    const adoption = asFiniteNumber(body.adoptionPct, 0, 100);
+    if (!scenario || adoption === null) {
+      return NextResponse.json({ error: 'Invalid simulation scenario' }, { status: 400 });
     }
-
-    const frequencies = parseFrequencies(body.frequencies);
-    if (!frequencies) {
-      return NextResponse.json({ error: 'Invalid impact frequencies' }, { status: 400 });
-    }
-    const saved = await saveImpactFrequencies(frequencies, sessionId);
     return NextResponse.json({
-      frequencies: saved,
-      impact: calculateSustainabilityImpact({ frequencies: saved }),
+      simulation: evaluateSimulatorScenario(scenario.id, adoption),
     });
-  } catch {
-    return NextResponse.json({ error: 'Calculation request failed' }, { status: 500 });
   }
-}
+
+  const frequencies = parseFrequencies(body.frequencies);
+  if (!frequencies) {
+    return NextResponse.json({ error: 'Invalid impact frequencies' }, { status: 400 });
+  }
+  const saved = await saveImpactFrequencies(frequencies, sessionId);
+  return NextResponse.json({
+    frequencies: saved,
+    impact: calculateSustainabilityImpact({ frequencies: saved }),
+  });
+});

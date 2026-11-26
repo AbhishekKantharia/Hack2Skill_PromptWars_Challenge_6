@@ -61,25 +61,14 @@ export async function proxy(req: NextRequest) {
   let previewGrantedByInput = false;
 
   if (previewToken && previewLocked) {
-    const queryToken = req.nextUrl.searchParams.get('preview');
     const headerToken = req.headers.get('x-preview-token');
     const cookieFingerprint = req.cookies.get(PREVIEW_COOKIE)?.value;
     previewFingerprintValue = await previewFingerprint(previewToken);
 
-    if (queryToken && !safeEqual(queryToken, previewToken)) return notFound();
     if (headerToken && !safeEqual(headerToken, previewToken)) return notFound();
-    previewGrantedByInput = !!queryToken || !!headerToken;
+    previewGrantedByInput = !!headerToken;
     if (!previewGrantedByInput && !safeEqual(cookieFingerprint, previewFingerprintValue)) {
       return notFound();
-    }
-
-    if (queryToken) {
-      const url = req.nextUrl.clone();
-      url.searchParams.delete('preview');
-      const redirect = NextResponse.redirect(url);
-      redirect.headers.set('Cache-Control', 'no-store');
-      redirect.cookies.set(PREVIEW_COOKIE, previewFingerprintValue, sessionCookieOptions());
-      return redirect;
     }
   }
 

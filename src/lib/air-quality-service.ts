@@ -79,11 +79,19 @@ export async function searchCities(query: string): Promise<CityLocation[]> {
   }
 }
 
+export interface AirQualityOptions {
+  forceDemoMode?: boolean;
+  includeHourly?: boolean;
+  includeStations?: boolean;
+}
+
 export async function getAirQualityForLocation(
   city: CityLocation,
-  options?: { forceDemoMode?: boolean }
+  options: AirQualityOptions = {}
 ): Promise<AirQualityPayload> {
-  const forceDemo = resolveDemoMode(options?.forceDemoMode, undefined);
+  const forceDemo = resolveDemoMode(options.forceDemoMode, undefined);
+  const includeHourly = options.includeHourly !== false;
+  const includeStations = options.includeStations !== false;
   if (forceDemo) {
     return buildDemoAirQualityPayload(city);
   }
@@ -93,8 +101,10 @@ export async function getAirQualityForLocation(
     const aqUrl =
       `https://air-quality-api.open-meteo.com/v1/air-quality?${locationParams}` +
       `&current=us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone` +
-      `&hourly=us_aqi,pm10,pm2_5,nitrogen_dioxide,ozone` +
-      `&past_hours=8&forecast_hours=17&timezone=UTC`;
+      (includeHourly
+        ? '&hourly=us_aqi,pm10,pm2_5,nitrogen_dioxide,ozone&past_hours=8&forecast_hours=17'
+        : '') +
+      '&timezone=UTC';
     const weatherUrl =
       `https://api.open-meteo.com/v1/forecast?${locationParams}` +
       `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code&timezone=UTC`;
@@ -124,61 +134,66 @@ export async function getAirQualityForLocation(
       throw new Error('No usable AQI or PM2.5 measurement returned for this location');
     }
 
-    const hourlyTimes: string[] = Array.isArray(aqJson.hourly?.time) ? aqJson.hourly.time : [];
-    const hourlyAqi: Array<number | null> = aqJson.hourly?.us_aqi ?? [];
-    const hourlyPm25: Array<number | null> = aqJson.hourly?.pm2_5 ?? [];
-    const hourlyPm10: Array<number | null> = aqJson.hourly?.pm10 ?? [];
-    const hourlyO3: Array<number | null> = aqJson.hourly?.ozone ?? [];
-    const hourlyNo2: Array<number | null> = aqJson.hourly?.nitrogen_dioxide ?? [];
-    const nowMs =
-      parseUtcTimestamp(current.time) ?? parseUtcTimestamp(hourlyTimes[0]) ?? Date.now();
+    let hourly: HourlyAirPoint[] = [];
+    if (includeHourly) {
+      const hourlyTimes: string[] = Array.isArray(aqJson.hourly?.time) ? aqJson.hourly.time : [];
+      const hourlyAqi: Array<number | null> = aqJson.hourly?.us_aqi ?? [];
+      const hourlyPm25: Array<number | null> = aqJson.hourly?.pm2_5 ?? [];
+      const hourlyPm10: Array<number | null> = aqJson.hourly?.pm10 ?? [];
+      const hourlyO3: Array<number | null> = aqJson.hourly?.ozone ?? [];
+      const hourlyNo2: Array<number | null> = aqJson.hourly?.nitrogen_dioxide ?? [];
+      const nowMs =
+        parseUtcTimestamp(current.time) ?? parseUtcTimestamp(hourlyTimes[0]) ?? Date.now();
 
-    const hourly: HourlyAirPoint[] = hourlyTimes
-      .map((iso, index): HourlyAirPoint | null => {
-        const pm25Val = roundOrNull(hourlyPm25[index], 1);
-        const rawHourAqi = roundOrNull(hourlyAqi[index], 0);
-        const hourAqi = rawHourAqi ?? (pm25Val !== null ? pm25ToUsAqi(pm25Val) : null);
-        if (hourAqi === null) return null;
-        const pointMs = parseUtcTimestamp(iso);
-        return {
-          time: iso,
-          label: formatLocalHour(iso, city.timezone),
-          aqi: hourAqi,
-          pm25: pm25Val,
-          pm10: roundOrNull(hourlyPm10[index], 1),
-          o3: roundOrNull(hourlyO3[index], 1),
-          no2: roundOrNull(hourlyNo2[index], 1),
-          isForecast: pointMs === null ? false : pointMs > nowMs,
-        };
-      })
-      .filter((point): point is HourlyAirPoint => point !== null);
+      hourly = hourlyTimes
+        .map((iso, index): HourlyAirPoint | null => {
+          const pm25Val = roundOrNull(hourlyPm25[index], 1);
+          const rawHourAqi = roundOrNull(hourlyAqi[index], 0);
+          const hourAqi = rawHourAqi ?? (pm25Val !== null ? pm25ToUsAqi(pm25Val) : null);
+          if (hourAqi === null) return null;
+          const pointMs = parseUtcTimestamp(iso);
+          return {
+            time: iso,
+            label: formatLocalHour(iso, city.timezone),
+            aqi: hourAqi,
+            pm25: pm25Val,
+            pm10: roundOrNull(hourlyPm10[index], 1),
+            o3: roundOrNull(hourlyO3[index], 1),
+            no2: roundOrNull(hourlyNo2[index], 1),
+            isForecast: pointMs === null ? false : pointMs > nowMs,
+          };
+        })
+        .filter((point): point is HourlyAirPoint => point !== null);
 
-    if (hourly.length === 0) {
-      throw new Error('No usable hourly air quality series returned for this location');
+      if (hourly.length === 0) {
+        throw new Error('No usable hourly air quality series returned for this location');
+      }
     }
 
     const wCurrent = weatherJson?.current ?? {};
     const timestamp = typeof current.time === 'string' ? current.time : new Date().toISOString();
-    const stations: AirQualityStation[] = [
-      {
-        id: `openmeteo-center-${city.lat.toFixed(2)}-${city.lon.toFixed(2)}`,
-        name: `${city.name} (CAMS / Open-Meteo Grid)`,
-        city: city.name,
-        lat: city.lat,
-        lon: city.lon,
-        aqi,
-        pm25: pollutants.pm25,
-        pm10: pollutants.pm10,
-        no2: pollutants.no2,
-        o3: pollutants.o3,
-        sourceType: 'model_grid',
-        sourceLabel: 'Open-Meteo CAMS Atmospheric Grid (Live Model)',
-        updatedAt: timestamp,
-      },
-    ];
+    const stations: AirQualityStation[] = includeStations
+      ? [
+          {
+            id: `openmeteo-center-${city.lat.toFixed(2)}-${city.lon.toFixed(2)}`,
+            name: `${city.name} (CAMS / Open-Meteo Grid)`,
+            city: city.name,
+            lat: city.lat,
+            lon: city.lon,
+            aqi,
+            pm25: pollutants.pm25,
+            pm10: pollutants.pm10,
+            no2: pollutants.no2,
+            o3: pollutants.o3,
+            sourceType: 'model_grid',
+            sourceLabel: 'Open-Meteo CAMS Atmospheric Grid (Live Model)',
+            updatedAt: timestamp,
+          },
+        ]
+      : [];
 
     let hasGroundStation = false;
-    const waqiToken = process.env.WAQI_API_TOKEN;
+    const waqiToken = includeStations ? process.env.WAQI_API_TOKEN : undefined;
     if (waqiToken) {
       try {
         const waqiRes = await fetch(
@@ -236,7 +251,7 @@ export async function getAirQualityForLocation(
       stations,
       dataMode: 'live',
       sourceName:
-        `Open-Meteo CAMS Global Air Quality & Weather API${hasGroundStation ? ' + WAQI ground station' : ''}`,
+        `Open-Meteo CAMS Global Air Quality & Weather API${includeStations && hasGroundStation ? ' + WAQI ground station' : ''}`,
       sourceUrl: 'https://open-meteo.com/en/docs/air-quality-api',
       timestamp,
       uncertaintyNote:
