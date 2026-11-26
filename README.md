@@ -110,7 +110,7 @@ Edit `.env.local` and optionally provide:
 - `GEMINI_API_KEY` or `OPENAI_API_KEY`
 - `WAQI_API_TOKEN`
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY` (server-only; the service-role key is intentionally unused)
-- `SESSION_COOKIE_SECRET`, `ADMIN_TOKEN`, `ALLOWED_ORIGINS`, `AI_DAILY_REQUEST_CAP`
+- `SESSION_COOKIE_SECRET` (required in production), `PREVIEW_ACCESS_TOKEN`, `ADMIN_TOKEN`, `ALLOWED_ORIGINS`, `AI_DAILY_REQUEST_CAP`
 
 If using Supabase, run `supabase/schema.sql` in the Supabase SQL Editor to create all tables and Row Level Security policies.
 
