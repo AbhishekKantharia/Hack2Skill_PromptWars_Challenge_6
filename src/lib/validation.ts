@@ -3,6 +3,7 @@ import type {
   BudgetTier,
   CityLocation,
   SensitivityGroup,
+  SpaceType,
   UserSettings,
 } from '@/types/breathewise';
 import { SUSTAINABILITY_ACTIONS } from '@/lib/calculations';
@@ -15,6 +16,7 @@ const SENSITIVITY_GROUPS: SensitivityGroup[] = [
   'outdoor_athletes',
 ];
 const BUDGET_TIERS: BudgetTier[] = ['free_first', 'balanced', 'advanced'];
+const SPACE_TYPES: SpaceType[] = ['household', 'school', 'neighborhood', 'housing_society'];
 const CATEGORIES = [
   'smoke_haze',
   'traffic_congestion',
@@ -132,6 +134,12 @@ export function parseBudgetTier(value: unknown): BudgetTier | null {
     : null;
 }
 
+export function parseSpaceType(value: unknown): SpaceType | null {
+  return typeof value === 'string' && SPACE_TYPES.includes(value as SpaceType)
+    ? (value as SpaceType)
+    : null;
+}
+
 export function parseSettingsPatch(
   raw: Record<string, unknown>
 ): Partial<UserSettings> | null {
@@ -148,6 +156,11 @@ export function parseSettingsPatch(
   if (sensitivity) patch.sensitivityGroup = sensitivity;
   const budget = parseBudgetTier(raw.budgetTier);
   if (budget) patch.budgetTier = budget;
+  const spaceType = parseSpaceType(raw.spaceType);
+  if (spaceType) patch.spaceType = spaceType;
+  const groupSize = asFiniteNumber(raw.groupSize, 1, 100000);
+  if (groupSize !== null) patch.groupSize = Math.round(groupSize);
+  if (typeof raw.setupComplete === 'boolean') patch.setupComplete = raw.setupComplete;
   if (raw.theme === 'light' || raw.theme === 'dark') patch.theme = raw.theme;
   if (raw.units === 'metric' || raw.units === 'imperial') patch.units = raw.units;
   if (typeof raw.forceDemoMode === 'boolean') patch.forceDemoMode = raw.forceDemoMode;

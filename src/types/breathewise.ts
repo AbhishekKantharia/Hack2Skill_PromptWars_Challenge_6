@@ -9,6 +9,8 @@ export type SensitivityGroup =
 
 export type BudgetTier = 'free_first' | 'balanced' | 'advanced';
 
+export type SpaceType = 'household' | 'school' | 'neighborhood' | 'housing_society';
+
 export interface CityLocation {
   name: string;
   country: string;
@@ -106,11 +108,42 @@ export interface AlertPreferences {
   enableVentilationWindows: boolean;
 }
 
+export interface FixedImpactMetrics {
+  headline: string;
+  detail: string;
+  formula: string;
+  unit: string;
+}
+
+export interface ImpactSource {
+  label: string;
+  url: string;
+}
+
+export interface DailyImpactRecommendation {
+  id: 'clean_hour' | 'close_windows' | 'indoor_filtration' | 'mask_commute' | 'cleaner_travel' | 'cleaner_cooking';
+  title: string;
+  icon: 'clock' | 'window' | 'filter' | 'mask' | 'transit' | 'cooking';
+  priority: number;
+  action: string;
+  plainLanguage: string;
+  whyItHelps: string;
+  cost: string;
+  bestFor: string;
+  impact: FixedImpactMetrics;
+  assumptions: string[];
+  sources: ImpactSource[];
+  dataMode: DataMode;
+}
+
 export interface UserSettings {
   displayName: string;
   defaultCity: CityLocation;
   sensitivityGroup: SensitivityGroup;
   budgetTier: BudgetTier;
+  spaceType: SpaceType;
+  groupSize: number;
+  setupComplete: boolean;
   theme: 'light' | 'dark';
   units: 'metric' | 'imperial';
   forceDemoMode: boolean;
