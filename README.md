@@ -129,13 +129,13 @@ npm run build
 npm start
 ```
 
-All four checks (`typecheck`, `lint`, 26 tests, production build) pass out of the box.
+All four checks (`typecheck`, `lint`, 27 tests, production build) pass out of the box.
 
 ---
 
 ## Privacy & API Behavior
 
-- Each browser receives an HMAC-signed session cookie (`HttpOnly`, `Secure` in production, `SameSite=Lax`, 1 year). The proxy verifies the signature and overwrites `x-session-id` plus a trusted marker; route handlers reject unmarked IDs. No session state is stored in `localStorage` (only the UI theme is).
+- Each browser receives an HMAC-signed session cookie (`HttpOnly`, `Secure` in production, `SameSite=Lax`, 1 year) on the first page response, so parallel mount-time API calls share one session. The proxy verifies the signature and overwrites `x-session-id` plus a trusted marker; route handlers reject unmarked IDs. No session state is stored in `localStorage` (only the UI theme is).
 - All API routes are session-scoped and rate-limited to 12 requests per minute per session/IP namespace, returning `429` with `Retry-After`. The proxy IP is taken from the trusted rightmost `x-forwarded-for` value.
 - State-changing requests require `Origin` or `Sec-Fetch-Site`, enforce same-origin CSRF checks, and require `application/json`; `multipart/form-data` uploads are rejected. CORS is same-origin by default; `ALLOWED_ORIGINS` can add explicit trusted origins. Production fails closed when `SESSION_COOKIE_SECRET` is missing. In-memory rate limits and AI caps are per-serverless-instance; use a shared store for strict multi-instance enforcement.
 - Admin paths (`/admin/*`, `/api/admin/*`) require `ADMIN_TOKEN` as a bearer token and return `404` when admin access is not configured. No admin routes ship by default.

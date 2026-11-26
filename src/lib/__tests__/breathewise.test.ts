@@ -288,6 +288,14 @@ describe('Privacy, validation, and transparency', () => {
     expect(challenge?.participantsCount).toBe(before.challenges[0].participantsCount + 1);
   });
 
+  it('ignores forged community IDs instead of creating permission keys', async () => {
+    const before = await getCommunityData('permission-session');
+    const vote = await upvoteObservation('obs-forged-id', 'permission-session');
+    const challenge = await actOnChallenge('challenge-forged', 'join', 'permission-session');
+    expect(vote.observations.length).toBe(before.observations.length);
+    expect(challenge.challenges).toEqual(before.challenges);
+  });
+
   it('compares secrets safely and recognizes admin paths', () => {
     expect(safeEqual('token-123', 'token-123')).toBe(true);
     expect(safeEqual('token-123', 'token-124')).toBe(false);

@@ -87,7 +87,18 @@ export async function proxy(req: NextRequest) {
   }
 
   if (!req.nextUrl.pathname.startsWith('/api/')) {
+    const secret = getSessionSecret();
+    const cookieName = getSessionCookieName();
+    const signed = req.cookies.get(cookieName)?.value;
+    const existing = await readSignedSessionId(signed, secret);
     const res = NextResponse.next();
+    if (!existing) {
+      res.cookies.set(
+        cookieName,
+        await signSessionId(crypto.randomUUID(), secret),
+        sessionCookieOptions()
+      );
+    }
     if (previewGrantedByInput && previewToken) {
       res.cookies.set(PREVIEW_COOKIE, previewToken, sessionCookieOptions());
     }

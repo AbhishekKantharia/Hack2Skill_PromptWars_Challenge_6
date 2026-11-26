@@ -338,11 +338,31 @@ export async function addCommunityObservation(input: {
   return newObs;
 }
 
+async function observationExists(id: string, db: LocalDatabase): Promise<boolean> {
+  if (db.observations.some((o) => o.id === id)) return true;
+  const supabase = getSupabaseClient();
+  if (!supabase) return false;
+  try {
+    const { data, error } = await supabase
+      .from('community_observations')
+      .select('id')
+      .eq('id', id)
+      .limit(1);
+    return !error && !!data?.length;
+  } catch {
+    return false;
+  }
+}
+
 export async function upvoteObservation(
   id: string,
   sessionId = DEFAULT_SESSION
 ): Promise<{ observations: CommunityObservation[]; alreadyVoted: boolean }> {
   const db = readLocalDb();
+  const observations = structuredClone(db.observations);
+  if (!(await observationExists(id, db))) {
+    return { observations, alreadyVoted: true };
+  }
   const session = getSession(db, sessionId);
   const alreadyVoted = session.upvotedObservationIds.includes(id);
   if (!alreadyVoted) {
@@ -361,6 +381,9 @@ export async function actOnChallenge(
   sessionId = DEFAULT_SESSION
 ): Promise<{ challenges: CommunityChallenge[]; alreadyJoined: boolean }> {
   const db = readLocalDb();
+  if (!INITIAL_COMMUNITY_CHALLENGES.some((c) => c.id === challengeId)) {
+    return { challenges: aggregateChallenges(db, sessionId), alreadyJoined: true };
+  }
   const session = getSession(db, sessionId);
   const alreadyJoined = session.joinedChallengeIds.includes(challengeId);
   const count = session.challengeActionCounts[challengeId] ?? 0;

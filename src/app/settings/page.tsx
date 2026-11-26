@@ -92,7 +92,7 @@ export default function SettingsPage() {
         </h2>
         <div>
           <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
-            Display Name (stored only in this browser session)
+            Display Name (saved to your private server-side session)
           </label>
           <div className="flex gap-2">
             <input
@@ -352,7 +352,7 @@ export default function SettingsPage() {
       <div className="flex items-start gap-2.5 rounded-2xl border border-sky-200 bg-sky-50/70 p-4 text-xs text-sky-950 dark:border-sky-800/50 dark:bg-sky-950/30 dark:text-sky-100">
         <Lock className="h-4 w-4 shrink-0 text-sky-600 mt-0.5" />
         <div>
-          <strong>Privacy:</strong> Preferences and chat history are scoped to this browser session and are not shared between visitors. Browser geolocation is optional, used only on demand to fetch environmental data, and is never published. Community reports accept neighborhood-level names only; coordinate-like strings are redacted.
+          <strong>Privacy:</strong> Preferences and chat history are isolated by a signed, HttpOnly session cookie and are not shared between visitors; the cookie persists for up to one year. Browser geolocation is optional, used only on demand to fetch environmental data, and is never published. Community reports accept neighborhood-level names only; coordinate-like strings are redacted.
         </div>
       </div>
     </div>
