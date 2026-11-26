@@ -69,6 +69,9 @@ export async function proxy(req: NextRequest) {
   headers.set('x-session-id', sessionId);
   const res = NextResponse.next({ request: { headers } });
   for (const [key, value] of Object.entries(cors)) res.headers.set(key, value);
+  res.headers.set('Cache-Control', 'no-store');
+  res.headers.set('X-Content-Type-Options', 'nosniff');
+  res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   if (needsCookie) {
     res.cookies.set(cookieName, await signSessionId(sessionId, secret), sessionCookieOptions());
   }
