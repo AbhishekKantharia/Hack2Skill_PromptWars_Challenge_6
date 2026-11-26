@@ -31,8 +31,12 @@ export function getSessionId(req: NextRequest): string {
 
 export function getClientIp(req: NextRequest): string {
   const forwarded = req.headers.get('x-forwarded-for');
-  const first = forwarded?.split(',')[0]?.trim();
-  return first || req.headers.get('x-real-ip') || 'unknown-ip';
+  const trusted = forwarded
+    ?.split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .at(-1);
+  return trusted || req.headers.get('x-real-ip') || 'unknown-ip';
 }
 
 export function rateLimitKey(sessionId: string, req: NextRequest, namespace: string): string {

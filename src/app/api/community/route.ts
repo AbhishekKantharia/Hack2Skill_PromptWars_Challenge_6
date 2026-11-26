@@ -5,25 +5,22 @@ import {
   getCommunityData,
   upvoteObservation,
 } from '@/lib/store';
-import { getSessionId, rateLimitKey } from '@/lib/request-context';
-import { checkRateLimit } from '@/lib/rate-limit';
+import { getSessionId } from '@/lib/request-context';
+import { enforceApiPolicy } from '@/lib/api-security';
 import { parseObservationInput, readJsonObject, asText } from '@/lib/validation';
 
 export async function GET(req: NextRequest) {
+  const denied = enforceApiPolicy(req, 'community-read');
+  if (denied) return denied;
   const data = await getCommunityData(getSessionId(req));
   return NextResponse.json(data);
 }
 
 export async function POST(req: NextRequest) {
   try {
+    const denied = enforceApiPolicy(req, 'community');
+    if (denied) return denied;
     const sessionId = getSessionId(req);
-    const limit = checkRateLimit(rateLimitKey(sessionId, req, 'community'));
-    if (!limit.allowed) {
-      return NextResponse.json(
-        { error: 'Too many requests. Please wait a minute and try again.' },
-        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
-      );
-    }
     const body = await readJsonObject(req);
     if (!body) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });

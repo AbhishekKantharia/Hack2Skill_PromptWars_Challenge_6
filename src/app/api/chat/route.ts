@@ -8,8 +8,9 @@ import {
   getChatHistory,
   getSettings,
 } from '@/lib/store';
-import { getSessionId, rateLimitKey } from '@/lib/request-context';
-import { checkRateLimit } from '@/lib/rate-limit';
+import { getSessionId } from '@/lib/request-context';
+import { enforceApiPolicy } from '@/lib/api-security';
+import { checkAiBudget } from '@/lib/spend-cap';
 import { resolveDemoMode } from '@/lib/demo-mode';
 import {
   asText,
@@ -20,23 +21,29 @@ import {
 import type { ChatMessage } from '@/types/breathewise';
 
 export async function GET(req: NextRequest) {
+  const denied = enforceApiPolicy(req, 'chat-read');
+  if (denied) return denied;
   const history = await getChatHistory(getSessionId(req));
   return NextResponse.json({ history });
 }
 
 export async function DELETE(req: NextRequest) {
+  const denied = enforceApiPolicy(req, 'chat-delete');
+  if (denied) return denied;
   await clearChatHistory(getSessionId(req));
   return NextResponse.json({ cleared: true });
 }
 
 export async function POST(req: NextRequest) {
   try {
+    const denied = enforceApiPolicy(req, 'chat');
+    if (denied) return denied;
     const sessionId = getSessionId(req);
-    const limit = checkRateLimit(rateLimitKey(sessionId, req, 'chat'));
-    if (!limit.allowed) {
+    const budget = checkAiBudget(sessionId);
+    if (!budget.allowed) {
       return NextResponse.json(
-        { error: 'Too many requests. Please wait a minute and try again.' },
-        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
+        { error: 'AI daily request cap reached. Please try again tomorrow.' },
+        { status: 429, headers: { 'Retry-After': String(budget.retryAfterSeconds) } }
       );
     }
 

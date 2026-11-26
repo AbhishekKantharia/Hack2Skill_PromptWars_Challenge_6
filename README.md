@@ -104,7 +104,8 @@ cp .env.example .env.local
 Edit `.env.local` and optionally provide:
 - `GEMINI_API_KEY` or `OPENAI_API_KEY`
 - `WAQI_API_TOKEN`
-- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY` (server-only; the service-role key is intentionally unused)
+- `SESSION_COOKIE_SECRET`, `ADMIN_TOKEN`, `ALLOWED_ORIGINS`, `AI_DAILY_REQUEST_CAP`
 
 If using Supabase, run `supabase/schema.sql` in the Supabase SQL Editor to create all tables and Row Level Security policies.
 
@@ -129,14 +130,17 @@ All four checks (`typecheck`, `lint`, 22 tests, production build) pass out of th
 
 ## Privacy & API Behavior
 
-- Every browser receives a random `breathewise-session-id` in `localStorage`; all client API calls (including city search) send it as `x-session-id` via `src/lib/client-api.ts`. Invalid, missing, or prototype-like IDs are rejected before reaching the store.
-- `GET/PATCH /api/settings`, `GET/POST/DELETE /api/chat`, `POST /api/routine`, `POST /api/calculator`, and `POST /api/community` are session-scoped. Community reports are public; upvotes and challenge joins are deduplicated per session.
+- Each browser receives an HMAC-signed session cookie (`HttpOnly`, `Secure` in production, `SameSite=Lax`, 1 year). Middleware verifies the signature and sets a trusted `x-session-id` for route handlers; client-supplied IDs cannot select another session. The legacy localStorage helper remains only as a fallback header source.
+- All API routes are session-scoped and rate-limited to 12 requests per minute per session/IP namespace, returning `429` with `Retry-After`. The proxy IP is taken from the trusted rightmost `x-forwarded-for` value.
+- State-changing requests enforce same-origin CSRF checks (`Origin`/`Sec-Fetch-Site`) and require `application/json`; `multipart/form-data` uploads are rejected. CORS is same-origin by default; `ALLOWED_ORIGINS` can add explicit trusted origins. In-memory rate limits and AI caps are per-serverless-instance; use a shared store for multi-instance strictness.
+- Admin paths (`/admin/*`, `/api/admin/*`) require `ADMIN_TOKEN` as a bearer token and return `404` when admin access is not configured. No admin routes ship by default.
+- AI calls are capped by `AI_DAILY_REQUEST_CAP` (default 200/day) before any provider request. Set provider billing caps in Google AI Studio/OpenAI as the authoritative spend limit.
 - API bodies are read through a 16 KB stream cap and parsed through `src/lib/validation.ts` (types, ranges, city coordinates, alert thresholds, frequencies, categories, IANA timezones). Unrecognized values are rejected or ignored, never trusted verbatim.
-- Air-quality, settings-write, chat, routine, calculator, and community requests are rate-limited to 12 requests per minute per session (with client IP included in the key) and return `429` with `Retry-After`.
 - Failed live environmental feeds are never presented as live: the API returns a clearly labeled demo payload with `degraded: true` and `liveError`, surfaced as a banner in the UI. Demo preference precedence is explicit request flag → session setting → environment default.
 - Forecast labels are formatted in each city's IANA timezone while upstream Open-Meteo requests are pinned to UTC; cleaner-day windows only use future forecast hours.
-- Local persistence uses `data/local-store.json` (gitignored). Override with `BREATHEWISE_STORE_PATH=/path/to/store.json`; tests use an in-memory store.
-- Supabase personal tables remain service-role only; idempotent RLS policies allow anonymous reads of community observations/challenges and anonymous submission of `user_submitted` reports whose text contains no coordinate-like strings.
+- Local persistence uses `data/local-store.json` (gitignored). `BREATHEWISE_STORE_PATH` accepts only a filename inside that directory; tests use an in-memory store.
+- Supabase access uses only the anon key with RLS. Idempotent policies allow anonymous reads of community observations/challenges and anonymous submission of `user_submitted` reports whose text contains no coordinate-like strings; an additional table constraint rejects coordinate-like text.
+- Security headers include CSP, `nosniff`, frame denial, referrer policy, permissions policy, COOP/CORP, and HSTS. Source maps and the `X-Powered-By` header are disabled in production. No secrets, cookies, debug endpoints, or raw SQL are present.
 
 ---
 
@@ -147,5 +151,5 @@ All four checks (`typecheck`, `lint`, 22 tests, production build) pass out of th
 3. Import the repository in **Vercel**:
    - Framework Preset: `Next.js`
    - Build Command: `npm run build`
-   - Add optional environment variables (`GEMINI_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `WAQI_API_TOKEN`).
+   - Add optional environment variables (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `WAQI_API_TOKEN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SESSION_COOKIE_SECRET`, `ADMIN_TOKEN`, `ALLOWED_ORIGINS`, `AI_DAILY_REQUEST_CAP`).
 4. Deploy — Vercel serves all React pages and `/api/*` backend routes globally with zero extra server setup.

@@ -24,6 +24,8 @@ const CATEGORIES = [
   'green_commute',
 ] as const;
 const SEVERITIES = ['low', 'moderate', 'high'] as const;
+export const COMMUNITY_CATEGORIES = CATEGORIES;
+export const COMMUNITY_SEVERITIES = SEVERITIES;
 
 export async function readJsonObject(
   req: NextRequest,

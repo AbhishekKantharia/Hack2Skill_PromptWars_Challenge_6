@@ -1,24 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSettings, updateSettings } from '@/lib/store';
-import { getSessionId, rateLimitKey } from '@/lib/request-context';
-import { checkRateLimit } from '@/lib/rate-limit';
+import { getSessionId } from '@/lib/request-context';
+import { enforceApiPolicy } from '@/lib/api-security';
 import { parseSettingsPatch, readJsonObject } from '@/lib/validation';
 
 export async function GET(req: NextRequest) {
+  const denied = enforceApiPolicy(req, 'settings-read');
+  if (denied) return denied;
   const settings = await getSettings(getSessionId(req));
   return NextResponse.json({ settings });
 }
 
 export async function PATCH(req: NextRequest) {
   try {
+    const denied = enforceApiPolicy(req, 'settings-write');
+    if (denied) return denied;
     const sessionId = getSessionId(req);
-    const limit = checkRateLimit(rateLimitKey(sessionId, req, 'settings-write'));
-    if (!limit.allowed) {
-      return NextResponse.json(
-        { error: 'Too many requests. Please wait a minute and try again.' },
-        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
-      );
-    }
     const body = await readJsonObject(req);
     const patch = body ? parseSettingsPatch(body) : null;
     if (!patch) {

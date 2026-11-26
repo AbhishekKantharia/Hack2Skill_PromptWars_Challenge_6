@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAirQualityForLocation } from '@/lib/air-quality-service';
 import { generateCleanerDayRoutine } from '@/lib/routine-engine';
 import { getSettings } from '@/lib/store';
-import { getSessionId, rateLimitKey } from '@/lib/request-context';
-import { checkRateLimit } from '@/lib/rate-limit';
+import { getSessionId } from '@/lib/request-context';
+import { enforceApiPolicy } from '@/lib/api-security';
 import { resolveDemoMode } from '@/lib/demo-mode';
 import {
   parseBudgetTier,
@@ -16,15 +16,9 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
+    const denied = enforceApiPolicy(req, 'routine');
+    if (denied) return denied;
     const sessionId = getSessionId(req);
-    const limit = checkRateLimit(rateLimitKey(sessionId, req, 'routine'));
-    if (!limit.allowed) {
-      return NextResponse.json(
-        { error: 'Too many requests. Please wait a minute and try again.' },
-        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
-      );
-    }
-
     const body = (await readJsonObject(req)) ?? {};
     const settings = await getSettings(sessionId);
     const location = parseCityLocation(body.location) ?? settings.defaultCity;

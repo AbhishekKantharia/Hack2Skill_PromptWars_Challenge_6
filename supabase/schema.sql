@@ -101,6 +101,21 @@ create table if not exists community_challenges (
   ends_on date not null
 );
 
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'community_observations_no_coordinates'
+  ) then
+    alter table community_observations add constraint community_observations_no_coordinates
+      check (
+        neighborhood !~* '[0-9]{1,3}\.[0-9]{2,}'
+        and description !~* '[0-9]{1,3}\.[0-9]{2,}'
+        and position('°' in neighborhood) = 0
+        and position('°' in description) = 0
+      );
+  end if;
+end $$;
+
 -- Enable Row Level Security (Supabase best practice)
 alter table user_profiles enable row level security;
 alter table alert_preferences enable row level security;

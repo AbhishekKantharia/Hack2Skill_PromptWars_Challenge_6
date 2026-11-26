@@ -15,7 +15,11 @@ import {
   INITIAL_COMMUNITY_OBSERVATIONS,
 } from '@/lib/demo-data';
 import { isSafeSessionId } from '@/lib/request-context';
-import { redactCoordinateLikeText } from '@/lib/validation';
+import {
+  COMMUNITY_CATEGORIES,
+  COMMUNITY_SEVERITIES,
+  redactCoordinateLikeText,
+} from '@/lib/validation';
 
 interface SessionState {
   settings: UserSettings;
@@ -32,8 +36,10 @@ interface LocalDatabase {
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
-const STORE_PATH =
-  process.env.BREATHEWISE_STORE_PATH || path.join(DATA_DIR, 'local-store.json');
+const STORE_PATH = path.join(
+  DATA_DIR,
+  path.basename(process.env.BREATHEWISE_STORE_PATH || '') || 'local-store.json'
+);
 const DEFAULT_SESSION = 'legacy';
 
 let testDb: LocalDatabase | null = null;
@@ -159,11 +165,10 @@ function hydrateSession(raw: Partial<SessionState> | undefined): SessionState {
 }
 
 function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return null;
-  return createClient(url, key);
+  return createClient(url, key, { auth: { persistSession: false } });
 }
 
 function aggregateChallenges(
@@ -249,15 +254,26 @@ export async function getCommunityData(sessionId = DEFAULT_SESSION): Promise<{
           const id = String(r.id);
           const locallyConfirmed = session.upvotedObservationIds.includes(id);
           const hasLocalCopy = db.observations.some((o) => o.id === id);
+          const category = COMMUNITY_CATEGORIES.includes(
+            r.category as CommunityObservation['category']
+          )
+            ? (r.category as CommunityObservation['category'])
+            : 'clear_breeze';
+          const severity = COMMUNITY_SEVERITIES.includes(
+            r.severity as CommunityObservation['severity']
+          )
+            ? (r.severity as CommunityObservation['severity'])
+            : 'low';
+          const upvotes = Math.max(0, Math.min(1_000_000, Number(r.upvotes ?? 0) || 0));
           return {
             id,
             neighborhood: redactCoordinateLikeText(r.neighborhood, 80) || 'Local Neighborhood',
             city: redactCoordinateLikeText(r.city, 60) || 'Local Area',
-            category: r.category as CommunityObservation['category'],
-            severity: r.severity as CommunityObservation['severity'],
+            category,
+            severity,
             description: redactCoordinateLikeText(r.description, 320),
             verificationType: 'user_submitted' as const,
-            upvotes: Number(r.upvotes ?? 0) + (locallyConfirmed && !hasLocalCopy ? 1 : 0),
+            upvotes: upvotes + (locallyConfirmed && !hasLocalCopy ? 1 : 0),
             createdAt: String(r.created_at),
           };
         });
@@ -301,7 +317,7 @@ export async function addCommunityObservation(input: {
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      await supabase.from('community_observations').insert({
+      const { error: insertError } = await supabase.from('community_observations').insert({
         neighborhood: newObs.neighborhood,
         city: newObs.city,
         category: newObs.category,
@@ -310,6 +326,7 @@ export async function addCommunityObservation(input: {
         verification_type: 'user_submitted',
         upvotes: 1,
       });
+      if (insertError) throw insertError;
     } catch {
       // Fall through to local store.
     }

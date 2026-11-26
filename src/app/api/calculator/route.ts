@@ -6,11 +6,13 @@ import {
   SUSTAINABILITY_ACTIONS,
 } from '@/lib/calculations';
 import { getSavedImpactFrequencies, saveImpactFrequencies } from '@/lib/store';
-import { getSessionId, rateLimitKey } from '@/lib/request-context';
-import { checkRateLimit } from '@/lib/rate-limit';
+import { getSessionId } from '@/lib/request-context';
+import { enforceApiPolicy } from '@/lib/api-security';
 import { asFiniteNumber, parseFrequencies, readJsonObject } from '@/lib/validation';
 
 export async function GET(req: NextRequest) {
+  const denied = enforceApiPolicy(req, 'calculator-read');
+  if (denied) return denied;
   const sessionId = getSessionId(req);
   const frequencies = await getSavedImpactFrequencies(sessionId);
   const impact = calculateSustainabilityImpact({ frequencies });
@@ -24,14 +26,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const denied = enforceApiPolicy(req, 'calculator-write');
+    if (denied) return denied;
     const sessionId = getSessionId(req);
-    const limit = checkRateLimit(rateLimitKey(sessionId, req, 'calculator-write'));
-    if (!limit.allowed) {
-      return NextResponse.json(
-        { error: 'Too many requests. Please wait a minute and try again.' },
-        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
-      );
-    }
     const body = (await readJsonObject(req)) ?? {};
 
     if (body.type === 'simulate') {

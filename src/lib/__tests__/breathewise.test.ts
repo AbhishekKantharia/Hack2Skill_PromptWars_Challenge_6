@@ -33,6 +33,9 @@ import { getSessionId, isSafeSessionId } from '@/lib/request-context';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { resolveDemoMode } from '@/lib/demo-mode';
 import { formatLocalHour } from '@/lib/time';
+import { isAdminPath, isAllowedOrigin, safeEqual } from '@/lib/security';
+import { readSignedSessionId, signSessionId } from '@/lib/session-cookie';
+import { checkAiBudget } from '@/lib/spend-cap';
 
 describe('AQI and Alert Engine', () => {
   it('computes accurate US EPA AQI from PM2.5 breakpoints', () => {
@@ -271,5 +274,44 @@ describe('Privacy, validation, and transparency', () => {
     expect(challenge?.joined).toBe(true);
     expect(challenge?.currentActions).toBe(before.challenges[0].currentActions + 1);
     expect(challenge?.participantsCount).toBe(before.challenges[0].participantsCount + 1);
+  });
+
+  it('compares secrets safely and recognizes admin paths', () => {
+    expect(safeEqual('token-123', 'token-123')).toBe(true);
+    expect(safeEqual('token-123', 'token-124')).toBe(false);
+    expect(safeEqual('short', 'longer-secret')).toBe(false);
+    expect(isAdminPath('/api/admin/status')).toBe(true);
+    expect(isAdminPath('/administration')).toBe(false);
+  });
+
+  it('allows only same-origin and explicitly configured origins', () => {
+    const previous = process.env.ALLOWED_ORIGINS;
+    process.env.ALLOWED_ORIGINS = 'https://demo.example.com';
+    expect(isAllowedOrigin(null, 'https://app.example.com')).toBe(true);
+    expect(isAllowedOrigin('https://app.example.com', 'https://app.example.com')).toBe(true);
+    expect(isAllowedOrigin('https://demo.example.com', 'https://app.example.com')).toBe(true);
+    expect(isAllowedOrigin('https://evil.example.com', 'https://app.example.com')).toBe(false);
+    if (previous === undefined) delete process.env.ALLOWED_ORIGINS;
+    else process.env.ALLOWED_ORIGINS = previous;
+  });
+
+  it('signs session cookies and rejects tampered values', async () => {
+    const secret = 'test-secret-with-entropy';
+    const signed = await signSessionId('valid-session-123', secret);
+    expect(await readSignedSessionId(signed, secret)).toBe('valid-session-123');
+    expect(await readSignedSessionId(`${signed}tampered`, secret)).toBeNull();
+    expect(await readSignedSessionId('short.value', secret)).toBeNull();
+  });
+
+  it('enforces a daily AI request cap', () => {
+    const previous = process.env.AI_DAILY_REQUEST_CAP;
+    process.env.AI_DAILY_REQUEST_CAP = '1';
+    const session = `budget-${Math.random().toString(36).slice(2)}`;
+    expect(checkAiBudget(session).allowed).toBe(true);
+    const blocked = checkAiBudget(session);
+    expect(blocked.allowed).toBe(false);
+    expect(blocked.retryAfterSeconds).toBeGreaterThan(0);
+    if (previous === undefined) delete process.env.AI_DAILY_REQUEST_CAP;
+    else process.env.AI_DAILY_REQUEST_CAP = previous;
   });
 });
