@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import type { NextRequest } from 'next/server';
 
 const HEADER = 'x-session-id';
+export const PROXY_HEADER = 'x-breathewise-trusted';
 const VALID_ID = /^[a-zA-Z0-9_-]{8,64}$/;
 const RESERVED_IDS = new Set([
   '__proto__',
@@ -26,17 +27,15 @@ export function isSafeSessionId(value: unknown): value is string {
 
 export function getSessionId(req: NextRequest): string {
   const provided = req.headers.get(HEADER);
-  return isSafeSessionId(provided) ? provided : randomUUID();
+  const verified = req.headers.get(PROXY_HEADER) === '1';
+  return verified && isSafeSessionId(provided) ? provided : randomUUID();
 }
 
 export function getClientIp(req: NextRequest): string {
-  const forwarded = req.headers.get('x-forwarded-for');
-  const trusted = forwarded
-    ?.split(',')
-    .map((value) => value.trim())
-    .filter(Boolean)
-    .at(-1);
-  return trusted || req.headers.get('x-real-ip') || 'unknown-ip';
+  const vercelIp = req.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim();
+  const realIp = req.headers.get('x-real-ip')?.trim();
+  const forwardedIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  return vercelIp || realIp || forwardedIp || 'unknown-ip';
 }
 
 export function rateLimitKey(sessionId: string, req: NextRequest, namespace: string): string {

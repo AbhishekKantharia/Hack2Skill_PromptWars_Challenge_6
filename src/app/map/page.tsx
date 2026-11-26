@@ -6,7 +6,7 @@ import { Globe2, Layers, MapPin, Radio } from 'lucide-react';
 import { useBreatheWise } from '@/components/BreatheWiseProvider';
 import type { AirQualityStation } from '@/types/breathewise';
 import { getAqiMeta } from '@/lib/aqi';
-import { apiHeaders } from '@/lib/client-api';
+import { apiFetch } from '@/lib/client-api';
 
 const AirMapLeaflet = dynamic(() => import('@/components/AirMapLeaflet'), {
   ssr: false,
@@ -28,13 +28,14 @@ export default function LiveMapPage() {
   useEffect(() => {
     if (scope !== 'global') return;
     let active = true;
+    const controller = new AbortController();
     (async () => {
       setLoadingGlobal(true);
       setGlobalError(null);
       try {
-        const res = await fetch(
+        const res = await apiFetch(
           `/api/air-quality?multi=true&demo=${settings.forceDemoMode}`,
-          { cache: 'no-store', headers: apiHeaders() }
+          { cache: 'no-store', signal: controller.signal }
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
@@ -50,6 +51,7 @@ export default function LiveMapPage() {
     })();
     return () => {
       active = false;
+      controller.abort();
     };
   }, [scope, settings.forceDemoMode]);
 

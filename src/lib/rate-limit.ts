@@ -1,6 +1,8 @@
 const windows = new Map<string, number[]>();
 const MAX_REQUESTS = 12;
 const WINDOW_MS = 60_000;
+const CLEANUP_INTERVAL_MS = 60_000;
+let lastCleanup = Date.now();
 
 export interface RateLimitResult {
   allowed: boolean;
@@ -19,14 +21,11 @@ export function checkRateLimit(key: string): RateLimitResult {
   }
   recent.push(now);
   windows.set(key, recent);
-  if (windows.size > 5000) {
+  if (now - lastCleanup >= CLEANUP_INTERVAL_MS || windows.size > 5000) {
     for (const [k, timestamps] of windows) {
       if (!timestamps.some((t) => now - t < WINDOW_MS)) windows.delete(k);
     }
+    lastCleanup = now;
   }
   return { allowed: true, retryAfterSeconds: 0 };
-}
-
-export function allowRequest(key: string): boolean {
-  return checkRateLimit(key).allowed;
 }

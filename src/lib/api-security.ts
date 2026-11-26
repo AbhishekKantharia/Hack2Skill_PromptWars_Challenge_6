@@ -15,6 +15,13 @@ function securityHeaders(): Record<string, string> {
 export function enforceApiPolicy(req: NextRequest, namespace: string): NextResponse | null {
   const headers = securityHeaders();
   const origin = req.headers.get('origin');
+  const isMutation = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
+  if (isMutation && !origin && !req.headers.get('sec-fetch-site')) {
+    return NextResponse.json(
+      { error: 'Mutation requests must include Origin or Sec-Fetch-Site' },
+      { status: 403, headers }
+    );
+  }
   if (!isAllowedOrigin(origin, req.nextUrl.origin)) {
     return NextResponse.json({ error: 'Origin not allowed' }, { status: 403, headers });
   }

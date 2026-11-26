@@ -8,7 +8,7 @@ import {
   getChatHistory,
   getSettings,
 } from '@/lib/store';
-import { getSessionId } from '@/lib/request-context';
+import { getClientIp, getSessionId } from '@/lib/request-context';
 import { enforceApiPolicy } from '@/lib/api-security';
 import { checkAiBudget } from '@/lib/spend-cap';
 import { resolveDemoMode } from '@/lib/demo-mode';
@@ -39,20 +39,20 @@ export async function POST(req: NextRequest) {
     const denied = enforceApiPolicy(req, 'chat');
     if (denied) return denied;
     const sessionId = getSessionId(req);
-    const budget = checkAiBudget(sessionId);
-    if (!budget.allowed) {
-      return NextResponse.json(
-        { error: 'AI daily request cap reached. Please try again tomorrow.' },
-        { status: 429, headers: { 'Retry-After': String(budget.retryAfterSeconds) } }
-      );
-    }
-
     const body = await readJsonObject(req);
     const question = asText(body?.question, 1000);
     if (!question) {
       return NextResponse.json(
         { error: 'Question is required (maximum 1000 characters)' },
         { status: 400 }
+      );
+    }
+
+    const budget = checkAiBudget(`${sessionId}:${getClientIp(req)}`);
+    if (!budget.allowed) {
+      return NextResponse.json(
+        { error: 'AI daily request cap reached. Please try again tomorrow.' },
+        { status: 429, headers: { 'Retry-After': String(budget.retryAfterSeconds) } }
       );
     }
 
@@ -70,15 +70,10 @@ export async function POST(req: NextRequest) {
       forceDemoMode: forceDemo,
     });
 
-    const existingHistory = await getChatHistory(sessionId);
     const reply = await generateAssistantReply({
       question,
       airQuality,
       sensitivityGroup,
-      history: existingHistory.slice(-6).map((m) => ({
-        role: m.role,
-        content: m.content.slice(0, 1000),
-      })),
     });
 
     const now = new Date().toISOString();
