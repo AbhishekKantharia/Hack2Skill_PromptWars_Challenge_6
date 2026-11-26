@@ -92,7 +92,7 @@ export default function CleanerDayPage() {
           <Sparkles className="h-3.5 w-3.5" />
           SIGNATURE FEATURE
         </div>
-        <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+        <h1 className="mt-2 text-h1 text-slate-900 dark:text-white flex items-center gap-2">
           <CalendarClock className="h-6 w-6 text-emerald-600" />
           My Cleaner Day Planner
         </h1>
@@ -111,7 +111,7 @@ export default function CleanerDayPage() {
             <select
               value={sensitivityGroup}
               onChange={(e) => setSensitivityGroup(e.target.value as SensitivityGroup)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              className="w-full min-w-0 max-w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             >
               <option value="general">General Adult</option>
               <option value="children">Families with Children</option>
@@ -130,7 +130,7 @@ export default function CleanerDayPage() {
               onChange={(e) =>
                 setCommuteMode(e.target.value as 'car' | 'transit' | 'walk_bike' | 'remote')
               }
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              className="w-full min-w-0 max-w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             >
               <option value="transit">Public Transit (Bus / Metro)</option>
               <option value="walk_bike">Walking / Cycling</option>
@@ -146,7 +146,7 @@ export default function CleanerDayPage() {
             <select
               value={budgetTier}
               onChange={(e) => setBudgetTier(e.target.value as BudgetTier)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              className="w-full min-w-0 max-w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             >
               <option value="free_first">Free Actions Only ($0)</option>
               <option value="balanced">Balanced (Free + Low-Cost)</option>
@@ -272,7 +272,7 @@ export default function CleanerDayPage() {
                   </span>
                 </div>
 
-                <h3 className="mt-3 text-base font-bold text-emerald-800 dark:text-emerald-300">
+                <h3 className="mt-3 text-h3 text-emerald-800 dark:text-emerald-300">
                   {item.action}
                 </h3>
                 <p className="mt-1.5 text-sm text-slate-700 dark:text-slate-200">

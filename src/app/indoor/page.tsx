@@ -29,7 +29,7 @@ export default function IndoorAdvisorPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+        <h1 className="text-h1 text-slate-900 dark:text-white flex items-center gap-2">
           <Home className="h-6 w-6 text-emerald-600" />
           Indoor Air Quality Advisor
         </h1>
@@ -108,18 +108,18 @@ export default function IndoorAdvisorPage() {
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span
-                  className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase ${tierBadge(
+                  className={`rounded-full border px-2.5 py-0.5 text-micro font-bold uppercase ${tierBadge(
                     rec.tier
                   )}`}
                 >
                   {rec.tier} · {rec.estimatedCost}
                 </span>
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <span className="text-micro font-semibold uppercase tracking-wider text-slate-400">
                   {rec.category}
                 </span>
               </div>
 
-              <h2 className="mt-3 text-lg font-bold text-slate-900 dark:text-white">
+              <h2 className="mt-3 text-h2 text-slate-900 dark:text-white">
                 {rec.title}
               </h2>
 

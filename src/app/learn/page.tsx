@@ -17,7 +17,7 @@ export default function LearningCenterPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+        <h1 className="text-h1 text-slate-900 dark:text-white flex items-center gap-2">
           <BookOpen className="h-6 w-6 text-emerald-600" />
           Environmental Learning Center
         </h1>
@@ -28,7 +28,7 @@ export default function LearningCenterPage() {
 
       {/* Pollutant Encyclopedia */}
       <section className="space-y-3">
-        <h2 className="text-base font-bold text-slate-900 dark:text-white">
+        <h2 className="text-h2 text-slate-900 dark:text-white">
           Key Urban Pollutants &amp; WHO 2021 Reference Levels
         </h2>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -41,7 +41,7 @@ export default function LearningCenterPage() {
                 <span className="text-xl font-black text-emerald-700 dark:text-emerald-400">
                   {p.symbol}
                 </span>
-                <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-sky-700 dark:text-sky-300">
+                <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-micro font-semibold text-sky-700 dark:text-sky-300">
                   {p.whoGuideline24h}
                 </span>
               </div>
@@ -62,7 +62,7 @@ export default function LearningCenterPage() {
 
       {/* US EPA AQI Scale */}
       <section className="rounded-3xl border border-emerald-200/70 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-base font-bold text-slate-900 dark:text-white mb-3">
+        <h2 className="text-h2 text-slate-900 dark:text-white mb-3">
           Understanding the US EPA Air Quality Index (AQI)
         </h2>
         <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">

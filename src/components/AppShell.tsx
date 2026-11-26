@@ -70,7 +70,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="text-base font-bold tracking-tight text-slate-900 dark:text-white">
               BreatheWise AI
             </div>
-            <div className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+            <div className="text-micro font-medium text-emerald-700 dark:text-emerald-400">
               Urban Air Companion
             </div>
           </div>
@@ -107,7 +107,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="font-semibold text-slate-800 dark:text-slate-100">
               {isDemo ? 'Demo Mode Active' : 'Live Environmental Feed'}
             </div>
-            <p className="mt-1 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
+            <p className="mt-1 text-micro leading-relaxed text-slate-600 dark:text-slate-300">
               {isDemo
                 ? 'Sample reference readings are clearly labeled. Toggle anytime for live Open-Meteo feeds.'
                 : 'Connected to Open-Meteo CAMS Air Quality & Weather streams.'}

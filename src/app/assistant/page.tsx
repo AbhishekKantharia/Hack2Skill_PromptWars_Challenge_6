@@ -110,7 +110,7 @@ export default function AssistantPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+          <h1 className="text-h1 text-slate-900 dark:text-white flex items-center gap-2">
             <Bot className="h-6 w-6 text-emerald-600" />
             AI Air Quality Assistant
           </h1>
@@ -168,7 +168,7 @@ export default function AssistantPage() {
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-sky-600 text-white shadow-md">
                 <Bot className="h-6 w-6" />
               </div>
-              <h2 className="mt-4 text-base font-bold text-slate-900 dark:text-white">
+              <h2 className="mt-4 text-h2 text-slate-900 dark:text-white">
                 Ask anything about urban air quality &amp; daily safety
               </h2>
               <p className="mt-1.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
@@ -189,15 +189,15 @@ export default function AssistantPage() {
                 )}
 
                 <div
-                  className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                  className={`min-w-0 max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                     m.role === 'user'
                       ? 'bg-emerald-600 text-white'
                       : 'border border-slate-200 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-100'
                   }`}
                 >
-                  <div className="whitespace-pre-wrap">{m.content}</div>
+                  <div className="whitespace-pre-wrap break-words">{m.content}</div>
                   <div
-                    className={`mt-2 flex flex-wrap items-center gap-2 text-[10px] ${
+                    className={`mt-2 flex flex-wrap items-center gap-2 text-micro ${
                       m.role === 'user'
                         ? 'text-emerald-100'
                         : 'text-slate-500 dark:text-slate-400'
@@ -209,7 +209,7 @@ export default function AssistantPage() {
                     {m.dataMode && <span>· {m.dataMode.toUpperCase()}</span>}
                   </div>
                   {m.role === 'assistant' && m.sources && m.sources.length > 0 && (
-                    <div className="mt-2 border-t border-slate-200 pt-2 text-[10px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                    <div className="mt-2 border-t border-slate-200 pt-2 text-micro text-slate-500 dark:border-slate-700 dark:text-slate-400">
                       <strong>Grounding references:</strong> {m.sources.join(' · ')}
                       {m.uncertaintyNote && (
                         <span className="mt-1 block">
@@ -258,12 +258,12 @@ export default function AssistantPage() {
               onChange={(e) => setInput(e.target.value)}
               placeholder={`Ask BreatheWise AI about ${activeCity.name} air quality...`}
               aria-label="Ask a question about air quality"
-              className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+              className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white"
             />
             <button
               type="submit"
               disabled={sending || !input.trim()}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
             >
               <Send className="h-4 w-4" />
               <span className="hidden sm:inline">Ask AI</span>

@@ -71,7 +71,7 @@ export default function LegalPage() {
           key={section.title}
           className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
         >
-          <h2 className="text-base font-bold text-slate-900 dark:text-white">{section.title}</h2>
+          <h2 className="text-h2 text-slate-900 dark:text-white">{section.title}</h2>
           <div className="mt-2 space-y-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
             {section.body.map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>

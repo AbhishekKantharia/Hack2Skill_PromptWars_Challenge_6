@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import Link from 'next/link';
+import React, { useMemo } from 'react';
+import { PrefetchLink } from '@/components/PrefetchLink';
 import {
   AlertTriangle,
   ArrowRight,
@@ -19,7 +19,7 @@ import { useBreatheWise } from '@/components/BreatheWiseProvider';
 export default function PresentationPage() {
   const { airQuality } = useBreatheWise();
 
-  const pillars = [
+  const pillars = useMemo(() => [
     {
       badge: '01 · PROBLEM',
       title: 'Urban Air Pollution Disrupts Everyday Decisions',
@@ -85,17 +85,17 @@ export default function PresentationPage() {
         'Collective action tracking across transit, zero-idling, and clean kitchens.',
       ],
     },
-  ];
+  ], []);
 
   return (
     <div className="space-y-8">
       {/* Hero Banner */}
       <div className="relative overflow-hidden rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-600 via-teal-600 to-sky-700 p-8 text-white shadow-xl">
-        <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-bold backdrop-blur-xs">
+        <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-bold">
           <Presentation className="h-3.5 w-3.5" />
           COMPETITION PRESENTATION DECK
         </div>
-        <h1 className="mt-4 text-3xl sm:text-4xl font-black tracking-tight">
+        <h1 className="mt-4 text-display tracking-tight">
           BreatheWise AI — Your Intelligent Urban Air Quality Companion
         </h1>
         <p className="mt-2 max-w-3xl text-sm sm:text-base text-emerald-50">
@@ -103,19 +103,19 @@ export default function PresentationPage() {
         </p>
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
-          <Link
+          <PrefetchLink
             href="/"
             className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-emerald-800 shadow-sm hover:bg-emerald-50"
           >
             Launch Live Dashboard
             <ArrowRight className="h-4 w-4" />
-          </Link>
-          <Link
+          </PrefetchLink>
+          <PrefetchLink
             href="/cleaner-day"
             className="inline-flex items-center gap-2 rounded-xl border border-white/40 bg-white/10 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/20"
           >
             Demo &ldquo;My Cleaner Day&rdquo;
-          </Link>
+          </PrefetchLink>
           {airQuality && (
             <span className="rounded-xl bg-slate-950/30 px-3 py-2 text-xs font-medium">
               Live Context: {airQuality.location.name} · {airQuality.aqi} US AQI ({airQuality.dataMode.toUpperCase()})
@@ -139,7 +139,7 @@ export default function PresentationPage() {
                   {p.badge}
                 </span>
               </div>
-              <h2 className="mt-3 text-lg font-extrabold text-slate-900 dark:text-white">
+              <h2 className="mt-3 text-h2 text-slate-900 dark:text-white">
                 {p.title}
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
@@ -177,18 +177,20 @@ export default function PresentationPage() {
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
-            <Link
+            <PrefetchLink
               href="/assistant"
+              apiPath="/api/chat"
               className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-emerald-700"
             >
               <Bot className="h-3.5 w-3.5" /> Try AI Assistant
-            </Link>
-            <Link
+            </PrefetchLink>
+            <PrefetchLink
               href="/calculator"
+              apiPath="/api/calculator"
               className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-sky-700"
             >
               Try What-If Simulator
-            </Link>
+            </PrefetchLink>
           </div>
         </div>
       </div>

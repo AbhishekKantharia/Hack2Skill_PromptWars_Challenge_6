@@ -69,7 +69,7 @@ function settingsMatch(a: UserSettings, b: UserSettings): boolean {
     a.defaultCity.name === b.defaultCity.name &&
     a.defaultCity.lat === b.defaultCity.lat &&
     a.defaultCity.lon === b.defaultCity.lon &&
-    JSON.stringify(a.alertThresholds) === JSON.stringify(b.alertThresholds) &&
+    JSON.stringify(a.alerts) === JSON.stringify(b.alerts) &&
     a.theme === b.theme
   );
 }
@@ -194,10 +194,12 @@ export function BreatheWiseProvider({ children }: { children: React.ReactNode })
         });
         if (!res.ok) return false;
         const data = await res.json();
-        const nextSettings = {
+        const nextSettings: UserSettings = {
           ...data.settings,
-          theme: typeof patch.theme === 'undefined' ? settingsRef.current.theme : data.settings.theme,
-        } as UserSettings;
+          theme: (typeof patch.theme === 'undefined'
+            ? settingsRef.current.theme
+            : data.settings.theme) as UserSettings['theme'],
+        };
         if (writeId === settingsWriteIdRef.current) {
           setSettings((prev) => (settingsMatch(prev, nextSettings) ? prev : nextSettings));
           settingsRef.current = nextSettings;

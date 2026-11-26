@@ -75,7 +75,7 @@ export default function LiveMapPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+          <h1 className="text-h1 text-slate-900 dark:text-white flex items-center gap-2">
             <MapPin className="h-6 w-6 text-sky-600" />
             Live Air Quality Map
           </h1>
@@ -141,7 +141,7 @@ export default function LiveMapPage() {
         </div>
 
         {metric === 'aqi' ? (
-          <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+          <div className="flex flex-wrap items-center gap-2 text-micro font-medium text-slate-600 dark:text-slate-300">
             <span className="inline-flex items-center gap-1">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Good (0–50)
             </span>
@@ -165,7 +165,7 @@ export default function LiveMapPage() {
             </span>
           </div>
         ) : (
-          <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+          <div className="flex flex-wrap items-center gap-2 text-micro font-medium text-slate-600 dark:text-slate-300">
             <span className="inline-flex items-center gap-1">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> ≤50% of WHO {metric.toUpperCase()} ({POLLUTANT_GUIDELINES[metric]} µg/m³)
             </span>
@@ -207,7 +207,7 @@ export default function LiveMapPage() {
 
       {/* Station Table */}
       <div className="rounded-2xl border border-emerald-200/70 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-base font-bold text-slate-900 dark:text-white mb-3">
+        <h2 className="text-h2 text-slate-900 dark:text-white mb-3">
           Visible Monitoring Nodes ({stations.length})
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -221,7 +221,7 @@ export default function LiveMapPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="font-bold text-slate-900 dark:text-white">{st.name}</div>
-                    <div className="text-[11px] text-slate-500">{st.sourceLabel}</div>
+                    <div className="text-micro text-slate-500">{st.sourceLabel}</div>
                   </div>
                   <span className={`rounded-full border px-2 py-0.5 font-bold ${meta.badgeClass}`}>
                     {st.aqi} AQI
@@ -229,19 +229,19 @@ export default function LiveMapPage() {
                 </div>
                 <div className="mt-2.5 grid grid-cols-4 gap-1 text-center rounded-lg bg-slate-50 p-2 dark:bg-slate-800/60">
                   <div>
-                    <div className="text-[10px] text-slate-500">PM2.5</div>
+                    <div className="text-micro text-slate-500">PM2.5</div>
                     <div className="font-semibold">{st.pm25 ?? 'N/A'}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-slate-500">PM10</div>
+                    <div className="text-micro text-slate-500">PM10</div>
                     <div className="font-semibold">{st.pm10 ?? 'N/A'}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-slate-500">NO₂</div>
+                    <div className="text-micro text-slate-500">NO₂</div>
                     <div className="font-semibold">{st.no2 ?? 'N/A'}</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-slate-500">O₃</div>
+                    <div className="text-micro text-slate-500">O₃</div>
                     <div className="font-semibold">{st.o3 ?? 'N/A'}</div>
                   </div>
                 </div>

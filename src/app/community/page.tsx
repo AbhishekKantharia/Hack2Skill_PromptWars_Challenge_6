@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Award,
   CheckCircle2,
@@ -36,6 +36,13 @@ export default function CommunityPage() {
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [upvotedIds, setUpvotedIds] = useState<string[]>([]);
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -57,10 +64,11 @@ export default function CommunityPage() {
     };
   }, []);
 
-  function flash(message: string) {
+  const flash = useCallback((message: string) => {
     setStatusMsg(message);
-    setTimeout(() => setStatusMsg(null), 4000);
-  }
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    statusTimerRef.current = setTimeout(() => setStatusMsg(null), 4000);
+  }, []);
 
   async function handleSubmitObservation(e: React.FormEvent) {
     e.preventDefault();
@@ -144,7 +152,7 @@ export default function CommunityPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+        <h1 className="text-h1 text-slate-900 dark:text-white flex items-center gap-2">
           <Users className="h-6 w-6 text-emerald-600" />
           Community Clean-Air Network
         </h1>
@@ -178,7 +186,7 @@ export default function CommunityPage() {
 
       {/* Neighborhood Challenges */}
       <section className="space-y-3">
-        <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+        <h2 className="text-h2 text-slate-900 dark:text-white flex items-center gap-2">
           <Trophy className="h-4 w-4 text-amber-500" />
           Active Neighborhood Clean-Air Challenges
         </h2>
@@ -200,7 +208,7 @@ export default function CommunityPage() {
                       {ch.badgeName}
                     </span>
                   </div>
-                  <h3 className="mt-3 text-base font-bold text-slate-900 dark:text-white">
+                  <h3 className="mt-3 text-h3 text-slate-900 dark:text-white">
                     {ch.title}
                   </h3>
                   <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
@@ -216,11 +224,11 @@ export default function CommunityPage() {
                     </div>
                     <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-sky-500 transition-all"
-                        style={{ width: `${pct}%` }}
+                        className="h-full w-full origin-left rounded-full bg-emerald-500 transition-transform"
+                        style={{ transform: `scaleX(${pct / 100})` }}
                       />
                     </div>
-                    <div className="mt-2 text-[11px] text-slate-500">
+                    <div className="mt-2 text-micro text-slate-500">
                       {ch.participantsCount} participants · Ends {ch.endsOn}
                     </div>
                   </div>
@@ -261,7 +269,7 @@ export default function CommunityPage() {
           onSubmit={(e) => void handleSubmitObservation(e)}
           className="rounded-3xl border border-emerald-200/70 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-3 h-fit"
         >
-          <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <h2 className="text-h2 text-slate-900 dark:text-white flex items-center gap-2">
             <MessageSquarePlus className="h-4 w-4 text-sky-600" />
             Submit Local Observation
           </h2>
@@ -279,7 +287,7 @@ export default function CommunityPage() {
               placeholder="e.g., North Station Market"
               value={neighborhood}
               onChange={(e) => setNeighborhood(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              className="w-full min-w-0 max-w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             />
           </div>
 
@@ -293,7 +301,7 @@ export default function CommunityPage() {
                 onChange={(e) =>
                   setCategory(e.target.value as CommunityObservation['category'])
                 }
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                className="w-full min-w-0 max-w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
               >
                 {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
                   <option key={k} value={k}>
@@ -311,7 +319,7 @@ export default function CommunityPage() {
                 onChange={(e) =>
                   setSeverity(e.target.value as CommunityObservation['severity'])
                 }
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                className="w-full min-w-0 max-w-full rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-white"
               >
                 <option value="low">Low / Positive</option>
                 <option value="moderate">Moderate</option>
@@ -330,14 +338,14 @@ export default function CommunityPage() {
               placeholder="Describe visible haze, traffic idling, or positive community action..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              className="w-full min-w-0 max-w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             />
           </div>
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            className="w-full min-w-0 max-w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {submitting ? 'Submitting...' : 'Share Community Report'}
           </button>
@@ -350,7 +358,7 @@ export default function CommunityPage() {
         </form>
 
         <div className="lg:col-span-2 space-y-3">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white">
+          <h2 className="text-h2 text-slate-900 dark:text-white">
             Recent Neighborhood Observations ({observations.length})
           </h2>
           {observations.map((obs) => (
@@ -364,11 +372,11 @@ export default function CommunityPage() {
                     {obs.neighborhood}
                   </span>
                   <span className="text-xs text-slate-500">· {obs.city}</span>
-                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-800 dark:text-amber-300">
+                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-micro font-bold uppercase text-amber-800 dark:text-amber-300">
                     User-Submitted Report
                   </span>
                 </div>
-                <span className="text-[11px] font-semibold text-slate-500">
+                <span className="text-micro font-semibold text-slate-500">
                   {CATEGORY_LABELS[obs.category]}
                 </span>
               </div>

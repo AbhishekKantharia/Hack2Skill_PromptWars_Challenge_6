@@ -139,7 +139,7 @@ export function AlertsStrip() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-semibold text-sm">{alert.title}</span>
                 {alert.metricValue && (
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.badge}`}>
+                  <span className={`rounded-full px-2 py-0.5 text-micro font-semibold ${st.badge}`}>
                     {alert.metricValue}
                   </span>
                 )}

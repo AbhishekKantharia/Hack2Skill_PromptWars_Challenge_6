@@ -122,7 +122,7 @@ export default function CalculatorAndSimulatorPage() {
       <section className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            <h1 className="text-h1 text-slate-900 dark:text-white flex items-center gap-2">
               <Calculator className="h-6 w-6 text-emerald-600" />
               Sustainability Impact Calculator
             </h1>
@@ -208,7 +208,7 @@ export default function CalculatorAndSimulatorPage() {
         {/* Sliders + Chart Grid */}
         <div className="grid gap-5 lg:grid-cols-2">
           <div className="space-y-3 rounded-3xl border border-emerald-200/70 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">
+            <h2 className="text-h2 text-slate-900 dark:text-white">
               Select Your Weekly Actions
             </h2>
             {SUSTAINABILITY_ACTIONS.map((action) => {
@@ -243,7 +243,7 @@ export default function CalculatorAndSimulatorPage() {
                     }
                     className="mt-2 w-full accent-emerald-600"
                   />
-                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                  <p className="mt-1 text-micro text-slate-500 dark:text-slate-400">
                     <strong>Local Air Effect:</strong> {action.localPollutantNote}
                   </p>
                 </div>
@@ -253,7 +253,7 @@ export default function CalculatorAndSimulatorPage() {
 
           <div className="flex min-w-0 flex-col justify-between rounded-3xl border border-emerald-200/70 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              <h2 className="text-h2 text-slate-900 dark:text-white">
                 Weekly &amp; Monthly CO₂e Avoided (kg)
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
@@ -304,10 +304,10 @@ export default function CalculatorAndSimulatorPage() {
             {SUSTAINABILITY_ACTIONS.map((a) => (
               <div key={a.id} className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
                 <div className="font-semibold text-slate-900 dark:text-white">{a.label}</div>
-                <div className="mt-1 font-mono text-[11px] text-emerald-700 dark:text-emerald-300">
+                <div className="mt-1 font-mono text-micro text-emerald-700 dark:text-emerald-300">
                   {a.formulaDescription}
                 </div>
-                <div className="mt-1 text-[11px] text-slate-500">Source: {a.sourceCitation}</div>
+                <div className="mt-1 text-micro text-slate-500">Source: {a.sourceCitation}</div>
               </div>
             ))}
           </div>
@@ -318,7 +318,7 @@ export default function CalculatorAndSimulatorPage() {
       <section className="rounded-3xl border border-sky-200/80 bg-gradient-to-br from-white to-sky-50/60 p-6 shadow-xs dark:border-slate-800 dark:from-slate-900 dark:to-sky-950/20 space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 px-3 py-1 text-[11px] font-bold text-amber-900 dark:text-amber-300">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 px-3 py-1 text-micro font-bold text-amber-900 dark:text-amber-300">
               <FlaskConical className="h-3.5 w-3.5" />
               {simResult.simulationLabel}
             </span>
@@ -347,7 +347,7 @@ export default function CalculatorAndSimulatorPage() {
               }`}
             >
               <div className="text-xs font-bold text-slate-900 dark:text-white">{sc.title}</div>
-              <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+              <div className="mt-1 text-micro text-slate-500 dark:text-slate-400">
                 {sc.description}
               </div>
             </button>
@@ -369,7 +369,7 @@ export default function CalculatorAndSimulatorPage() {
               onChange={(e) => setAdoptionPct(Number(e.target.value))}
               className="mt-3 w-full accent-sky-600"
             />
-            <div className="mt-2 text-[11px] text-slate-500">
+            <div className="mt-2 text-micro text-slate-500">
               Participating households: <strong>{simResult.participatingHouseholds.toLocaleString()}</strong> of{' '}
               {simResult.scenario.householdsScope.toLocaleString()}
             </div>
@@ -394,10 +394,10 @@ export default function CalculatorAndSimulatorPage() {
             <div className="mt-1 text-3xl font-black text-sky-600 dark:text-sky-400">
               ~{simResult.localSectorEmissionDropPct}%
             </div>
-            <div className="text-[11px] font-semibold text-sky-800 dark:text-sky-300">
+            <div className="text-micro font-semibold text-sky-800 dark:text-sky-300">
               Sector-activity proxy (upper bound), not AQI
             </div>
-            <div className="mt-1 text-[11px] text-slate-500">
+            <div className="mt-1 text-micro text-slate-500">
               {simResult.proxyNote} {simResult.scenario.localPm25ProxyNote}
             </div>
           </div>

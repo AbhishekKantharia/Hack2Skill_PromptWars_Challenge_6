@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Bell, Check, FlaskConical, Lock, Moon, Settings, Sun } from 'lucide-react';
 import { useBreatheWise } from '@/components/BreatheWiseProvider';
 import { FEATURED_CITIES } from '@/lib/demo-data';
@@ -15,6 +15,13 @@ export default function SettingsPage() {
   const [savedToast, setSavedToast] = useState<{ message: string; ok: boolean } | null>(null);
   const [draftAlerts, setDraftAlerts] = useState<AlertPreferences | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
   const savePatch = useCallback(
     async (
@@ -24,15 +31,22 @@ export default function SettingsPage() {
     ) => {
       const ok = await updateSettings(patch);
       setSavedToast(ok ? { message, ok } : { message: 'Could not save settings. Please try again.', ok });
-      setTimeout(() => setSavedToast(null), 3000);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setSavedToast(null), 3000);
       if (ok && clearDraft) setDraftAlerts(null);
     },
     [updateSettings]
   );
 
+  const savePatchRef = useRef(savePatch);
+
+  useEffect(() => {
+    savePatchRef.current = savePatch;
+  }, [savePatch]);
+
   const commitAlerts = useCallback(() => {
-    if (draftAlerts) void savePatch({ alerts: draftAlerts }, 'Alert preferences saved', true);
-  }, [draftAlerts, savePatch]);
+    if (draftAlerts) void savePatchRef.current({ alerts: draftAlerts }, 'Alert preferences saved', true);
+  }, [draftAlerts]);
 
   useEffect(() => {
     if (!draftAlerts) return;
@@ -62,7 +76,7 @@ export default function SettingsPage() {
     <div className="space-y-6 max-w-4xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+          <h1 className="text-h1 text-slate-900 dark:text-white flex items-center gap-2">
             <Settings className="h-6 w-6 text-emerald-600" />
             User Settings &amp; Alert Preferences
           </h1>
@@ -87,7 +101,7 @@ export default function SettingsPage() {
 
       {/* Profile & Localization */}
       <div className="rounded-3xl border border-emerald-200/70 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900 space-y-4">
-        <h2 className="text-base font-bold text-slate-900 dark:text-white">
+        <h2 className="text-h2 text-slate-900 dark:text-white">
           Profile &amp; Environmental Preferences
         </h2>
         <div>
@@ -100,7 +114,7 @@ export default function SettingsPage() {
               maxLength={48}
               value={displayName ?? settings.displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              className="w-full min-w-0 max-w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             />
             <button
               type="button"
@@ -124,7 +138,7 @@ export default function SettingsPage() {
               onChange={(e) =>
                 void savePatch({ sensitivityGroup: e.target.value as SensitivityGroup })
               }
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              className="w-full min-w-0 max-w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             >
               <option value="general">General Adult</option>
               <option value="children">Families with Children</option>
@@ -143,7 +157,7 @@ export default function SettingsPage() {
               onChange={(e) =>
                 void savePatch({ budgetTier: e.target.value as BudgetTier })
               }
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              className="w-full min-w-0 max-w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             >
               <option value="free_first">Free Actions First ($0)</option>
               <option value="balanced">Balanced (Free + Affordable)</option>
@@ -161,7 +175,7 @@ export default function SettingsPage() {
                 const found = FEATURED_CITIES.find((c) => c.name === e.target.value);
                 if (found) void savePatch({ defaultCity: found });
               }}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              className="w-full min-w-0 max-w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             >
               {!isKnownCity && (
                 <option value={settings.defaultCity.name}>
@@ -185,7 +199,7 @@ export default function SettingsPage() {
               onChange={(e) =>
                 void savePatch({ units: e.target.value as 'metric' | 'imperial' })
               }
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+              className="w-full min-w-0 max-w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
             >
               <option value="metric">Metric (°C, km/h, µg/m³)</option>
               <option value="imperial">Imperial (°F, mph, µg/m³)</option>

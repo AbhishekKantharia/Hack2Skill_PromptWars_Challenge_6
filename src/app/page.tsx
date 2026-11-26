@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
+import { PrefetchLink } from '@/components/PrefetchLink';
 import {
   Activity,
   ArrowRight,
@@ -24,12 +24,19 @@ import { AirQualityCharts } from '@/components/AirQualityCharts';
 import { FEATURED_CITIES } from '@/lib/demo-data';
 
 export default function DashboardPage() {
-  const { airQuality, loadingAq, aqError, settings, setActiveCity, refreshAirQuality } =
-    useBreatheWise();
+  const {
+    airQuality,
+    loadingAq,
+    aqError,
+    settings,
+    setActiveCity,
+    refreshAirQuality,
+    prefetchAirQuality,
+  } = useBreatheWise();
 
   if (loadingAq && !airQuality) {
     return (
-      <div className="space-y-6 animate-pulse">
+      <div className="space-y-6">
         <div className="h-44 rounded-3xl bg-emerald-100/70 dark:bg-slate-800" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -47,6 +54,9 @@ export default function DashboardPage() {
       <button
         type="button"
         onClick={() => void refreshAirQuality()}
+        onMouseEnter={() => prefetchAirQuality()}
+        onFocus={() => prefetchAirQuality()}
+        onTouchStart={() => prefetchAirQuality()}
         className="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-700"
       >
         Retry Connection
@@ -143,7 +153,7 @@ export default function DashboardPage() {
       {/* Quick City Switcher Pills */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+          <h1 className="text-h1 tracking-tight text-slate-900 dark:text-white">
             Urban Air Quality Dashboard
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-300">
@@ -166,7 +176,10 @@ export default function DashboardPage() {
                 key={city.name}
                 type="button"
                 onClick={() => setActiveCity(city)}
-                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                onMouseEnter={() => prefetchAirQuality(city)}
+                onFocus={() => prefetchAirQuality(city)}
+                onTouchStart={() => prefetchAirQuality(city)}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                   selected
                     ? 'bg-emerald-600 text-white shadow-xs'
                     : 'bg-white text-slate-600 border border-slate-200 hover:border-emerald-400 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-700'
@@ -217,21 +230,22 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex flex-col gap-2 sm:items-end">
-              <Link
+              <PrefetchLink
                 href="/cleaner-day"
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-emerald-500/20 transition hover:brightness-110"
+                className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-emerald-700"
               >
                 <CalendarClock className="h-4 w-4" />
                 Plan My Cleaner Day
                 <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
+              </PrefetchLink>
+              <PrefetchLink
                 href="/assistant"
-                className="inline-flex items-center gap-2 rounded-xl border border-emerald-300 bg-white/90 px-4 py-2 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-50 dark:border-emerald-800 dark:bg-slate-900 dark:text-emerald-300"
+                apiPath="/api/chat"
+                className="inline-flex items-center gap-2 rounded-xl border border-emerald-300 bg-white px-4 py-2 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-50 dark:border-emerald-800 dark:bg-slate-900 dark:text-emerald-300"
               >
                 <Bot className="h-3.5 w-3.5" />
                 Ask AI About Today’s Air
-              </Link>
+              </PrefetchLink>
             </div>
           </div>
 
@@ -252,7 +266,7 @@ export default function DashboardPage() {
         <div className="rounded-3xl border border-sky-200/80 bg-white p-6 shadow-xs dark:border-slate-800 dark:bg-slate-900/90 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold text-slate-900 dark:text-white">
+              <h2 className="text-h2 text-slate-900 dark:text-white">
                 Weather &amp; Dispersion
               </h2>
               <CloudSun className="h-5 w-5 text-sky-500" />
@@ -303,7 +317,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-2.5 text-[11px] text-slate-600 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-300">
+          <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-2.5 text-micro text-slate-600 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-300">
             Low wind (&lt;8 km/h) often traps morning &amp; evening exhaust near ground level.
           </div>
         </div>
@@ -315,7 +329,7 @@ export default function DashboardPage() {
       {/* 6 Pollutant Metric Cards */}
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <h2 className="text-h2 text-slate-900 dark:text-white flex items-center gap-2">
             <Activity className="h-4 w-4 text-emerald-600" />
             {airQuality.dataMode === 'demo' ? 'Sample Pollutant Reference Data' : 'Live Pollutant Breakdown'}
           </h2>
@@ -327,7 +341,7 @@ export default function DashboardPage() {
           {pollutantCards.map((p) => (
             <div
               key={p.label}
-              className="rounded-2xl border border-emerald-200/60 bg-white p-4 shadow-xs transition hover:-translate-y-0.5 hover:border-emerald-400 dark:border-slate-800 dark:bg-slate-900/90"
+              className="min-w-0 rounded-2xl border border-emerald-200/60 bg-white p-4 shadow-xs transition-colors hover:border-emerald-400 dark:border-slate-800 dark:bg-slate-900/90"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -338,10 +352,10 @@ export default function DashboardPage() {
                   <div className="text-2xl font-extrabold text-slate-900 dark:text-white">
                     {p.value !== null ? p.value : 'N/A'}
                   </div>
-                  <div className="text-[11px] font-medium text-slate-500">{p.unit}</div>
+                  <div className="text-micro font-medium text-slate-500">{p.unit}</div>
                 </div>
               </div>
-              <div className="mt-3 border-t border-slate-100 pt-2 text-[11px] text-slate-500 dark:border-slate-800 dark:text-slate-400">
+              <div className="mt-3 border-t border-slate-100 pt-2 text-micro text-slate-500 dark:border-slate-800 dark:text-slate-400">
                 {p.guide}
               </div>
             </div>
@@ -354,46 +368,47 @@ export default function DashboardPage() {
 
       {/* Feature Navigation Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Link
+        <PrefetchLink
           href="/map"
-          className="group rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-sky-400 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+          className="group min-w-0 rounded-2xl border border-slate-200 bg-white p-4 transition-colors hover:border-sky-400 dark:border-slate-800 dark:bg-slate-900"
         >
           <MapIcon className="h-5 w-5 text-sky-600" />
-          <div className="mt-2 font-bold text-slate-900 dark:text-white">Live Air Map</div>
+          <div className="mt-2 text-h3 text-slate-900 dark:text-white">Live Air Map</div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Compare spatial monitors and global city snapshots.
           </p>
-        </Link>
-        <Link
+        </PrefetchLink>
+        <PrefetchLink
           href="/indoor"
-          className="group rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-emerald-400 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+          className="group min-w-0 rounded-2xl border border-slate-200 bg-white p-4 transition-colors hover:border-emerald-400 dark:border-slate-800 dark:bg-slate-900"
         >
           <Home className="h-5 w-5 text-emerald-600" />
-          <div className="mt-2 font-bold text-slate-900 dark:text-white">Indoor Advisor</div>
+          <div className="mt-2 text-h3 text-slate-900 dark:text-white">Indoor Advisor</div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Free, affordable, and HEPA strategies with honest limits.
           </p>
-        </Link>
-        <Link
+        </PrefetchLink>
+        <PrefetchLink
           href="/calculator"
-          className="group rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-emerald-400 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+          apiPath="/api/calculator"
+          className="group min-w-0 rounded-2xl border border-slate-200 bg-white p-4 transition-colors hover:border-emerald-400 dark:border-slate-800 dark:bg-slate-900"
         >
           <Calculator className="h-5 w-5 text-emerald-600" />
-          <div className="mt-2 font-bold text-slate-900 dark:text-white">Impact &amp; Simulator</div>
+          <div className="mt-2 text-h3 text-slate-900 dark:text-white">Impact &amp; Simulator</div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Track avoided CO₂, fuel, energy &amp; explore what-if scenarios.
           </p>
-        </Link>
-        <Link
+        </PrefetchLink>
+        <PrefetchLink
           href="/presentation"
-          className="group rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-sky-400 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+          className="group min-w-0 rounded-2xl border border-slate-200 bg-white p-4 transition-colors hover:border-sky-400 dark:border-slate-800 dark:bg-slate-900"
         >
           <Activity className="h-5 w-5 text-sky-600" />
-          <div className="mt-2 font-bold text-slate-900 dark:text-white">Competition Deck</div>
+          <div className="mt-2 text-h3 text-slate-900 dark:text-white">Competition Deck</div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Explore the problem, GenAI innovation &amp; social impact story.
           </p>
-        </Link>
+        </PrefetchLink>
       </div>
     </div>
   );
